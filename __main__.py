@@ -34,10 +34,12 @@ class MyWindow(QMainWindow):
     def __init_statusBar(self):
         self.setStatusBar(FileTransferStatusBar())
         timer = QTimer(self)
-        global_speed = self.centralWidget().model().global_speed
-        set_global_speed = self.statusBar().set_global_speed
-        self.connect(timer, SIGNAL('timeout()'), lambda param = global_speed : set_global_speed(param()))
-        timer.start(1000)
+        model = self.centralWidget().model()
+        status_bar = self.statusBar()
+        self.connect(timer, SIGNAL('timeout()'), lambda param = model.global_speed : status_bar.set_global_speed(param()))
+        self.connect(timer, SIGNAL('timeout()'), lambda param = model.global_time_left : status_bar.set_time_left(param()))
+        self.connect(timer, SIGNAL('timeout()'), lambda param = model.transfer_count : status_bar.set_transfer_count(param()))
+        timer.start(640)
 
     # 以下均为调试方法
     def __debug_buttons(self):
@@ -77,28 +79,32 @@ class FileTransferSortProxyModel(QSortFilterProxyModel):
         self.sort(0)
         self.set_calculated_column = self.sourceModel().set_calculated_column
         self.global_speed = self.sourceModel().global_speed
+        self.global_time_left = self.sourceModel().global_time_left
+        self.transfer_count = self.sourceModel().transfer_count
 
     def lessThan(self, left_index, right_index):
+        if not (left_index.data() and right_index.data()): return False
         return left_index.data() < right_index.data()
 
 class FileTransferStatusBar(QStatusBar):
     def __init__(self, parent=None):
         super(FileTransferStatusBar, self).__init__(parent)
-        self.set_file_transfer_count()
+        self.set_transfer_count()
         self.set_time_left()
         self.set_global_speed()
         
-    def set_file_transfer_count(self, count=0):
+    def set_transfer_count(self, count=0):
         self.__init_widget('file_transfer_count', QLabel())
         self.file_transfer_count.setText('同步%d个文件' % count)
 
     def set_time_left(self, seconds_left=0):
+        text = -1 == seconds_left and '无法估计' or format_time(seconds_left)
         self.__init_widget('time_left', QLabel())
-        self.time_left.setText('剩余时间: %s' % format_time(seconds_left))
+        self.time_left.setText('剩余时间: %s' % text)
 
     def set_global_speed(self, byte_per_second=0.0):
         self.__init_widget('global_speed', QLabel())
-        self.global_speed.setText(convert_byte_size(byte_per_second) + '/s')
+        self.global_speed.setText('全局速度: %s' % convert_byte_size(byte_per_second) + '/s')
 
     def __init_widget(self, attr_name, widget):
         if not hasattr(self, attr_name):
@@ -109,15 +115,16 @@ class FileTransferDelegate(QStyledItemDelegate):
     def paint(self, painter, option, index):
         if 4 == index.column():
             value = index.data(Qt.DisplayRole)
-            opts = QStyleOptionProgressBarV2()
-            opts.rect = option.rect
-            opts.minum = 0
-            opts.maximum = 100
-            opts.text = str(value) + '%'
-            opts.textAlignment = Qt.AlignCenter
-            opts.textVisible = True
-            opts.progress = value
-            QApplication.style().drawControl(QStyle.CE_ProgressBar, opts, painter)
+            if value != None:
+                opts = QStyleOptionProgressBarV2()
+                opts.rect = option.rect
+                opts.minum = 0
+                opts.maximum = 100
+                opts.text = str(value) + '%'
+                opts.textAlignment = Qt.AlignCenter
+                opts.textVisible = True
+                opts.progress = value
+                QApplication.style().drawControl(QStyle.CE_ProgressBar, opts, painter)
         else:
             super().paint(painter, option, index)
 
@@ -141,13 +148,15 @@ class FileTransferTableModel(QSqlTableModel):
 
     def data(self, index, role=Qt.DisplayRole):
         if Qt.DisplayRole == role:
+            status = self.raw_data(self.index(index.row(), 1))
+
             if 1 == index.column():
-                return self.raw_data(index) and '同步中' or '同步完毕'
+                return status and '同步中' or '同步完毕'
             if 3 == index.column():
                 return convert_byte_size(int(self.raw_data(index)))
-            if 4 == index.column():
+            if 4 == index.column() and status:
                 return self.__calculated_column['progress'].get(index.row(), 0)
-            if 5 == index.column():
+            if 5 == index.column() and status:
                 return convert_byte_size(int(self.__calculated_column['speed'].get(index.row(), 0))) + '/s'
 
         return self.raw_data(index, role)
@@ -170,6 +179,22 @@ class FileTransferTableModel(QSqlTableModel):
     def global_speed(self):
         return sum(self.__calculated_column['speed'].values())
 
+    def transfer_count(self):
+        query = QSqlQuery('SELECT SUM(status) FROM file_list')
+        while query.next():
+            return query.value(0)
+
+    def total_size(self):
+        query = QSqlQuery('SELECT SUM(size) FROM file_list')
+        while query.next():
+            return query.value(0)
+
+    def global_time_left(self):
+        return -1
+    #     print('>>>>>>>>', self.total_size(), self.global_progress(), self.global_speed())
+    #     if self.global_speed() == 0: return -1
+    #     return self.total_size() * self.global_progress() / self.global_speed()
+
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     db=QSqlDatabase.addDatabase("QSQLITE")
@@ -186,6 +211,7 @@ if __name__ == '__main__':
     q.exec_('INSERT INTO file_list (id, status, name, size) VALUES(2, 1, \'旅途之中.mp3\', 4194304)')
     q.exec_('INSERT INTO file_list (id, status, name, size) VALUES(3, 1, \'zurich.mp4\', 9101244)')
     q.exec_('INSERT INTO file_list (id, status, name, size) VALUES(4, 1, \'armageddon.jpg\', 401244)')
+    q.exec_('INSERT INTO file_list (id, status, name, size) VALUES(5, 0, \'larmageddon.jpg\', 401240)')
     q.exec_('commit')
 
     window = MyWindow()
