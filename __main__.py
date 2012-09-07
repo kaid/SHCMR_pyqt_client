@@ -118,10 +118,8 @@ class FileTransferTableModel(QSqlTableModel):
         self.setTable(table)
         self.select()
         self.setEditStrategy(QSqlTableModel.OnManualSubmit)
-        self.__setData = super(FileTransferTableModel, self).setData
-        self.__columnCount = super(FileTransferTableModel, self).columnCount
-        self.__sort = super(FileTransferTableModel, self).sort
-        self.raw_data = super(FileTransferTableModel, self).data
+        self.__columnCount = super().columnCount
+        self.raw_data = super().data
         self.insertColumns(4, 1)
         self.__progress_column = dict()
 
