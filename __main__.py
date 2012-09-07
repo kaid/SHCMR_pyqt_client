@@ -44,21 +44,19 @@ class MyWindow(QMainWindow):
         status_bar = self.statusBar()
         status_bar.progress_button = QPushButton('进度')
         status_bar.addWidget(status_bar.progress_button)
-        status_bar.progress_button.clicked.connect(self.__plus_plus)
+        status_bar.progress_button.clicked.connect(self.__random_progress)
 
-    def __plus_plus(self):
+    def __random_progress(self):
         model = self.centralWidget().model()
         for row in range(model.rowCount()):
-            index = model.index(row, 4)
-            #data = model.data(index)
-            model.setData(index, random.randint(0, 100))
+            model.update_progress(row, random.randint(0, 100))
 
 class FileTransferTable(QTableView):
     def __init__(self, parent=None):
         super(FileTransferTable, self).__init__(parent)
         self.resizeColumnsToContents()
         self.setModel(FileTransferSortProxyModel(FileTransferTableModel('file_list', self)))
-        self.setItemDelegateForColumn(4, ProgressDelegate())
+        self.setItemDelegate(FileTransferDelegate())
         self.verticalHeader().hide()
         self.horizontalHeader().setStretchLastSection(True)
         self.setSortingEnabled(True)
@@ -69,13 +67,10 @@ class FileTransferSortProxyModel(QSortFilterProxyModel):
         super(FileTransferSortProxyModel, self).__init__(parent)
         self.setSourceModel(source_model)
         self.sort(0)
+        self.update_progress = self.sourceModel().update_progress
 
     def lessThan(self, left_index, right_index):
-        left_val = left_index.data()
-        right_val = right_index.data()
-
-        return left_val < right_val
-
+        return left_index.data() < right_index.data()
 
 class FileTransferStatusBar(QStatusBar):
     def __init__(self, parent=None):
@@ -101,19 +96,21 @@ class FileTransferStatusBar(QStatusBar):
             self.__dict__[attr_name] = widget
             self.addWidget(self.__dict__[attr_name])
 
-class ProgressDelegate(QStyledItemDelegate):
+class FileTransferDelegate(QStyledItemDelegate):
     def paint(self, painter, option, index):
-        value = index.data(Qt.DisplayRole)
-        opts = QStyleOptionProgressBarV2()
-        opts.rect = option.rect
-        opts.minum = 0
-        opts.maximum = 100
-        opts.text = str(value)
-        opts.textAlignment = Qt.AlignCenter
-        opts.textVisible = True
-        opts.progress = value
-
-        QApplication.style().drawControl(QStyle.CE_ProgressBar, opts, painter)
+        if 4 == index.column():
+            value = index.data(Qt.DisplayRole)
+            opts = QStyleOptionProgressBarV2()
+            opts.rect = option.rect
+            opts.minum = 0
+            opts.maximum = 100
+            opts.text = str(value) + '%'
+            opts.textAlignment = Qt.AlignCenter
+            opts.textVisible = True
+            opts.progress = value
+            QApplication.style().drawControl(QStyle.CE_ProgressBar, opts, painter)
+        else:
+            super().paint(painter, option, index)
 
 class FileTransferTableModel(QSqlTableModel):
     def __init__ (self, table, parent=None):
@@ -140,7 +137,7 @@ class FileTransferTableModel(QSqlTableModel):
             # if 5 == index.column():
             #     return convert_byte_size(int(self.rawData(index))) + '/s'
             if 4 == index.column():
-                return self.__progress_column.get(self.get_row_id(index.row()), 0)
+                return self.__progress_column.get(index.row(), 0)
 
         return self.raw_data(index, role)
 
@@ -153,17 +150,11 @@ class FileTransferTableModel(QSqlTableModel):
     def insertColumns(self, column, count, parent=QModelIndex()):
         return True
 
-    def setData(self, index, value, role=Qt.DisplayRole):
-        if index.column() == 4:
-            self.__progress_column[self.get_row_id(index.row())] = value
-            self.emit(SIGNAL("dataChanged(QModelIndex,QModelIndex)"), index, index)
-            return True
-
-        return self.__setData(index, value, role)
-
-    def get_row_id(self, row):
-        return self.raw_data(self.index(row, 0))
-
+    def update_progress(self, row, value):
+        index = self.index(row, 4)
+        self.__progress_column[row] = value
+        self.emit(SIGNAL("dataChanged(QModelIndex,QModelIndex)"), index, index)
+        return True
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
