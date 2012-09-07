@@ -43,13 +43,22 @@ class MyWindow(QMainWindow):
     def __debug_buttons(self):
         status_bar = self.statusBar()
         status_bar.progress_button = QPushButton('进度')
+        status_bar.speed_button = QPushButton('速度')
         status_bar.addWidget(status_bar.progress_button)
+        status_bar.addWidget(status_bar.speed_button)
         status_bar.progress_button.clicked.connect(self.__random_progress)
+        status_bar.speed_button.clicked.connect(self.__random_speed)
 
     def __random_progress(self):
         model = self.centralWidget().model()
         for row in range(model.rowCount()):
-            model.update_progress(row, random.randint(0, 100))
+            model.set_calculated_column('progress', row, random.randint(0, 100))
+
+    def __random_speed(self):
+        model = self.centralWidget().model()
+        for row in range(model.rowCount()):
+            model.set_calculated_column('speed', row, random.randint(0, 9999999))
+
 
 class FileTransferTable(QTableView):
     def __init__(self, parent=None):
@@ -67,7 +76,7 @@ class FileTransferSortProxyModel(QSortFilterProxyModel):
         super(FileTransferSortProxyModel, self).__init__(parent)
         self.setSourceModel(source_model)
         self.sort(0)
-        self.update_progress = self.sourceModel().update_progress
+        self.set_calculated_column = self.sourceModel().set_calculated_column
 
     def lessThan(self, left_index, right_index):
         return left_index.data() < right_index.data()
@@ -113,6 +122,8 @@ class FileTransferDelegate(QStyledItemDelegate):
             super().paint(painter, option, index)
 
 class FileTransferTableModel(QSqlTableModel):
+    __calculated_column_index = {'progress':4, 'speed':5}
+
     def __init__ (self, table, parent=None):
         super(FileTransferTableModel, self).__init__(parent)
         self.setTable(table)
@@ -120,11 +131,13 @@ class FileTransferTableModel(QSqlTableModel):
         self.setEditStrategy(QSqlTableModel.OnManualSubmit)
         self.__columnCount = super().columnCount
         self.raw_data = super().data
-        self.insertColumns(4, 1)
-        self.__progress_column = dict()
+        self.insertColumns(4, 2)
+        self.__calculated_column = dict()
+        for key in self.__class__.__calculated_column_index:
+            self.__calculated_column[key] = dict()
 
     def columnCount(self, parent):
-        return self.__columnCount(parent) + 1
+        return self.__columnCount(parent) + len(self.__class__.__calculated_column_index)
 
     def data(self, index, role=Qt.DisplayRole):
         if Qt.DisplayRole == role:
@@ -132,10 +145,10 @@ class FileTransferTableModel(QSqlTableModel):
                 return self.raw_data(index) and '同步中' or '同步完毕'
             if 3 == index.column():
                 return convert_byte_size(int(self.raw_data(index)))
-            # if 5 == index.column():
-            #     return convert_byte_size(int(self.rawData(index))) + '/s'
             if 4 == index.column():
-                return self.__progress_column.get(index.row(), 0)
+                return self.__calculated_column['progress'].get(index.row(), 0)
+            if 5 == index.column():
+                return convert_byte_size(int(self.__calculated_column['speed'].get(index.row(), 0))) + '/s'
 
         return self.raw_data(index, role)
 
@@ -148,9 +161,9 @@ class FileTransferTableModel(QSqlTableModel):
     def insertColumns(self, column, count, parent=QModelIndex()):
         return True
 
-    def update_progress(self, row, value):
-        index = self.index(row, 4)
-        self.__progress_column[row] = value
+    def set_calculated_column(self, column, row, value):
+        index = self.index(row, self.__class__.__calculated_column_index[column])
+        self.__calculated_column[column][row] = value
         self.emit(SIGNAL("dataChanged(QModelIndex,QModelIndex)"), index, index)
         return True
 
