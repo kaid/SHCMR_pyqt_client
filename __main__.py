@@ -33,6 +33,11 @@ class MyWindow(QMainWindow):
 
     def __init_statusBar(self):
         self.setStatusBar(FileTransferStatusBar())
+        timer = QTimer(self)
+        global_speed = self.centralWidget().model().global_speed
+        set_global_speed = self.statusBar().set_global_speed
+        self.connect(timer, SIGNAL('timeout()'), lambda param = global_speed : set_global_speed(param()))
+        timer.start(1000)
 
     # 以下均为调试方法
     def __debug_buttons(self):
@@ -54,7 +59,6 @@ class MyWindow(QMainWindow):
         for row in range(model.rowCount()):
             model.set_calculated_column('speed', row, random.randint(0, 9999999))
 
-
 class FileTransferTable(QTableView):
     def __init__(self, parent=None):
         super(FileTransferTable, self).__init__(parent)
@@ -72,6 +76,7 @@ class FileTransferSortProxyModel(QSortFilterProxyModel):
         self.setSourceModel(source_model)
         self.sort(0)
         self.set_calculated_column = self.sourceModel().set_calculated_column
+        self.global_speed = self.sourceModel().global_speed
 
     def lessThan(self, left_index, right_index):
         return left_index.data() < right_index.data()
@@ -93,7 +98,7 @@ class FileTransferStatusBar(QStatusBar):
 
     def set_global_speed(self, byte_per_second=0.0):
         self.__init_widget('global_speed', QLabel())
-        self.global_speed.setText('%3.1f KB/s' % (byte_per_second / 1024))
+        self.global_speed.setText(convert_byte_size(byte_per_second) + '/s')
 
     def __init_widget(self, attr_name, widget):
         if not hasattr(self, attr_name):
@@ -161,6 +166,9 @@ class FileTransferTableModel(QSqlTableModel):
         self.__calculated_column[column][row] = value
         self.emit(SIGNAL("dataChanged(QModelIndex,QModelIndex)"), index, index)
         return True
+
+    def global_speed(self):
+        return sum(self.__calculated_column['speed'].values())
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
