@@ -6,11 +6,6 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 from PyQt4.QtSql import *
 
-file_transfer_list = [[True, '东方风神录.rar', 348127232, 90, 65740],
-                      [True, '旅途之中.mp3', 4194304, 20, 32768],
-                      [True, 'zurich.mp4', 9101244, 46, 12768],
-                      [True, 'armageddon.jpg', 401244, 4, 4]]
-
 def convert_byte_size(byte_size):
     for unit in ['bytes','KB','MB','GB','TB']:
         if byte_size < 1024.0:
