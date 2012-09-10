@@ -193,7 +193,6 @@ class FileTransferTableModel(QSqlTableModel):
         size = self.raw_data(self.index(row, 3))
         progress = self.__calculated_column['progress'].get(row, 0)
         speed = self.__calculated_column['speed'].get(row, 0)
-        print(size, progress, speed)
         if not (speed and progress):
             return 0
         return size * progress / speed
