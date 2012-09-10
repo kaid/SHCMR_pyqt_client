@@ -6,6 +6,7 @@ from PyQt4.QtGui import (QMainWindow,
                          QPushButton,
                          QSystemTrayIcon,
                          QAction,
+                         QIcon,
                          QMenu,
                          qApp)
 
@@ -18,7 +19,7 @@ class MyWindow(QMainWindow):
     def __init__(self, parent=None):
         super(MyWindow, self).__init__(parent)
         self.setWindowTitle('文件传输详情')
-        self.setCentralWidget(FileTransferTable())
+        self.setCentralWidget(FileTransferTable(parent=self))
         self.__init_statusBar()
 
         # 界面调试按钮
@@ -91,15 +92,22 @@ class FileTransferStatusBar(QStatusBar):
             self.__dict__[attr_name] = widget
             self.addWidget(self.__dict__[attr_name])
 
-class TrayTool(QSystemTrayIcon):
-    def __init__(self, icon, app, parent=None):
-        super(TrayTool, self).__init__(parent)
-        self.setIcon(icon)
-        self.__setup_menu()
-
-    def __setup_menu(self):
-        self.quit_action = QAction('&Quit ', self, triggered=qApp.quit)
-        self.tray_menu = QMenu()
-        self.tray_menu.addAction(self.quit_action)
-        self.setContextMenu(self.tray_menu)
+class TrayIcon(QSystemTrayIcon):
+    def __init__(self, app, parent=None):
+        super(TrayIcon, self).__init__(parent)
+        self.setIcon(QIcon('s.png'))
+        self.setContextMenu(TrayMenu(app))
         
+class TrayMenu(QMenu):
+    def __init__(self, app, parent=None):
+        super(TrayMenu, self).__init__(parent)
+        self.app = app
+        self.__setup_actions()
+
+    def __setup_actions(self):
+        self.addAction(QAction('&打开同步目录 ', self.app))
+        self.recent_transfers = self.addMenu('&最近同步的文件 ')
+        self.addSeparator()
+        self.addAction(QAction('&退出 ', self.app, triggered=qApp.quit))
+
+        self.recent_transfers.addAction(QAction('&larmageddon.jpg ', self.app))
