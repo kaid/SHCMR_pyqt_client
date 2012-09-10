@@ -1,5 +1,14 @@
 import random
-from PyQt4.QtGui import QMainWindow, QTableView, QStatusBar, QLabel, QPushButton
+from PyQt4.QtGui import (QMainWindow,
+                         QTableView,
+                         QStatusBar,
+                         QLabel,
+                         QPushButton,
+                         QSystemTrayIcon,
+                         QAction,
+                         QMenu,
+                         qApp)
+
 from PyQt4.QtCore import QTimer, SIGNAL
 from models import FileTransferSortProxyModel
 from delegates import FileTransferDelegate
@@ -81,3 +90,16 @@ class FileTransferStatusBar(QStatusBar):
         if not hasattr(self, attr_name):
             self.__dict__[attr_name] = widget
             self.addWidget(self.__dict__[attr_name])
+
+class TrayTool(QSystemTrayIcon):
+    def __init__(self, icon, app, parent=None):
+        super(TrayTool, self).__init__(parent)
+        self.setIcon(icon)
+        self.__setup_menu()
+
+    def __setup_menu(self):
+        self.quit_action = QAction('&Quit ', self, triggered=qApp.quit)
+        self.tray_menu = QMenu()
+        self.tray_menu.addAction(self.quit_action)
+        self.setContextMenu(self.tray_menu)
+        

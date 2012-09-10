@@ -1,16 +1,16 @@
 #!/usr/bin/env python
 import sys
-from PyQt4.QtGui import QApplication
+from PyQt4.QtGui import QApplication, QIcon
 from PyQt4.QtSql import QSqlDatabase, QSqlQuery
 from models import FileTransferSortProxyModel, FileTransferTableModel
-from views import MyWindow, FileTransferStatusBar
+from views import MyWindow, FileTransferStatusBar, TrayTool
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    db=QSqlDatabase.addDatabase("QSQLITE")
+    db = QSqlDatabase.addDatabase("QSQLITE")
     db.setDatabaseName("database.db")
     db.open()
-    q=QSqlQuery()
+    q = QSqlQuery()
     q.exec_('CREATE TABLE IF NOT EXISTS file_list(\
                id     INTEGER PRIMARY KEY AUTOINCREMENT,\
                status BOOL DEFAULT 0 CHECK (status = 0 OR status = 1),\
@@ -27,5 +27,9 @@ if __name__ == '__main__':
     window = MyWindow()
     window.resize(640, 240)
     window.show()
-    sys.exit(app.exec_())
+    tray = TrayTool(QIcon('s.png'), app)
+    tray.show()
+    app.exec_()
+    tray = None
+    sys.exit(0)
 
