@@ -97,8 +97,8 @@ class FileTransferStatusBar(QStatusBar):
         self.__init_widget('file_transfer_count', QLabel())
         self.file_transfer_count.setText('同步%d个文件' % count)
 
-    def set_time_left(self, seconds_left=0):
-        text = -1 == seconds_left and '无法估计' or format_time(seconds_left)
+    def set_time_left(self, seconds_left=-1):
+        text = 0 >= seconds_left and '无法估计' or format_time(seconds_left)
         self.__init_widget('time_left', QLabel())
         self.time_left.setText('剩余时间: %s' % text)
 
@@ -189,11 +189,18 @@ class FileTransferTableModel(QSqlTableModel):
         while query.next():
             return query.value(0)
 
+    def time_left(self, row):
+        size = self.raw_data(self.index(row, 3))
+        progress = self.__calculated_column['progress'].get(row, 0)
+        speed = self.__calculated_column['speed'].get(row, 0)
+        print(size, progress, speed)
+        if not (speed and progress):
+            return 0
+        return size * progress / speed
+
     def global_time_left(self):
-        return -1
-    #     print('>>>>>>>>', self.total_size(), self.global_progress(), self.global_speed())
-    #     if self.global_speed() == 0: return -1
-    #     return self.total_size() * self.global_progress() / self.global_speed()
+        time_left_collection = [self.time_left(row) for row in range(self.rowCount())]
+        return sum(time_left_collection)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
