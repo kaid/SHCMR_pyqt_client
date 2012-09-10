@@ -67,6 +67,7 @@ class FileTransferTable(QTableView):
         self.resizeColumnsToContents()
         self.setModel(FileTransferSortProxyModel(FileTransferTableModel('file_list', self)))
         self.setItemDelegate(FileTransferDelegate())
+        self.setEditTriggers(self.NoEditTriggers)
         self.verticalHeader().hide()
         self.horizontalHeader().setStretchLastSection(True)
         self.setSortingEnabled(True)
@@ -135,7 +136,6 @@ class FileTransferTableModel(QSqlTableModel):
         super(FileTransferTableModel, self).__init__(parent)
         self.setTable(table)
         self.select()
-        self.setEditStrategy(QSqlTableModel.OnManualSubmit)
         self.__columnCount = super().columnCount
         self.raw_data = super().data
         self.insertColumns(4, 2)
