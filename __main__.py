@@ -149,15 +149,16 @@ class FileTransferTableModel(QSqlTableModel):
     def data(self, index, role=Qt.DisplayRole):
         if Qt.DisplayRole == role:
             status = self.raw_data(self.index(index.row(), 1))
+            fid = self.raw_data(self.index(index.row(), 0))
 
             if 1 == index.column():
                 return status and '同步中' or '同步完毕'
             if 3 == index.column():
                 return convert_byte_size(int(self.raw_data(index)))
             if 4 == index.column() and status:
-                return self.__calculated_column['progress'].get(index.row(), 0)
+                return self.__calculated_column['progress'].get(fid, 0)
             if 5 == index.column() and status:
-                return convert_byte_size(int(self.__calculated_column['speed'].get(index.row(), 0))) + '/s'
+                return convert_byte_size(int(self.__calculated_column['speed'].get(fid, 0))) + '/s'
 
         return self.raw_data(index, role)
 
@@ -171,8 +172,12 @@ class FileTransferTableModel(QSqlTableModel):
         return True
 
     def set_calculated_column(self, column, row, value):
+        status = self.raw_data(self.index(row, 1))
+        if not status:
+            return False
+        fid = self.raw_data(self.index(row, 0))
         index = self.index(row, self.__class__.__calculated_column_index[column])
-        self.__calculated_column[column][row] = value
+        self.__calculated_column[column][fid] = value
         self.emit(SIGNAL("dataChanged(QModelIndex,QModelIndex)"), index, index)
         return True
 
@@ -190,9 +195,10 @@ class FileTransferTableModel(QSqlTableModel):
             return query.value(0)
 
     def time_left(self, row):
+        fid = self.raw_data(self.index(row, 0))
         size = self.raw_data(self.index(row, 3))
-        progress = 1 - (self.__calculated_column['progress'].get(row, 0) / 100)
-        speed = self.__calculated_column['speed'].get(row, 0)
+        progress = 1 - (self.__calculated_column['progress'].get(fid, 0) / 100)
+        speed = self.__calculated_column['speed'].get(fid, 0)
         if not speed:
             return -1
         return size * progress / speed
