@@ -6,6 +6,7 @@ from PyQt4.QtGui import (QMainWindow,
                          QPushButton,
                          QSystemTrayIcon,
                          QDesktopServices,
+                         QAbstractItemView,
                          QFileDialog,
                          QAction,
                          QIcon,
@@ -68,6 +69,7 @@ class FileTransferTable(QTableView):
         self.horizontalHeader().setStretchLastSection(True)
         self.setSortingEnabled(True)
         self.setColumnHidden(0, True)
+        self.setSelectionBehavior(QAbstractItemView.SelectRows)
 
 class FileTransferStatusBar(QStatusBar):
     def __init__(self, parent=None):

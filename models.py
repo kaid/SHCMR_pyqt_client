@@ -17,6 +17,9 @@ class FileTransferSortProxyModel(QSortFilterProxyModel):
         if not (left_index.data() and right_index.data()): return False
         return left_index.data() < right_index.data()
 
+    def flags(self, index):
+        return Qt.ItemIsEnabled | Qt.ItemIsSelectable
+
 class FileTransferTableModel(QSqlTableModel):
     __calculated_column_index = {'progress':4, 'speed':5}
 
