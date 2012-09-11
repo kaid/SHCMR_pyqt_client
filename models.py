@@ -1,6 +1,6 @@
 from PyQt4.QtGui import QSortFilterProxyModel
 from PyQt4.QtSql import QSqlTableModel, QSqlQuery
-from PyQt4.QtCore import Qt, QModelIndex, SIGNAL, QDir
+from PyQt4.QtCore import Qt, QModelIndex, SIGNAL, QDir, pyqtSignal, QObject
 from utils import *
 
 class FileTransferSortProxyModel(QSortFilterProxyModel):
@@ -94,16 +94,18 @@ class FileTransferTableModel(QSqlTableModel):
         time_left_collection = [self.time_left(row) for row in range(self.rowCount())]
         return sum(time_left_collection)
 
-class Configuration:
-    def __init__(self):
+class Configuration(QObject):
+    have_updated = pyqtSignal()
+
+    def __init__(self, parent=None):
+        super(Configuration, self).__init__()
         self.query = QSqlQuery()
-        if not self.get_directory():
-            self.set_directory(QDir.homePath())
 
     def set_directory(self, directory):
         self.query.prepare('UPDATE configuration SET directory=:directory WHERE id=1')
         self.query.bindValue(':directory', directory)
         self.query.exec_()
+        self.have_updated.emit()
 
     def get_directory(self):
         self.query.exec_('SELECT directory FROM configuration WHERE id=1')

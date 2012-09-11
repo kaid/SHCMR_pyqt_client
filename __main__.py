@@ -2,7 +2,7 @@
 import sys
 from PyQt4.QtGui import QApplication, QIcon
 from PyQt4.QtSql import QSqlDatabase, QSqlQuery
-from models import FileTransferSortProxyModel, FileTransferTableModel
+from models import Configuration
 from views import MyWindow, FileTransferStatusBar, TrayIcon
 
 if __name__ == '__main__':
@@ -30,10 +30,11 @@ if __name__ == '__main__':
     q.exec_('INSERT INTO configuration (id) VALUES(1)')
     q.exec_('commit')
 
-    window = MyWindow()
+    config = Configuration()
+    window = MyWindow(config)
     window.resize(640, 240)
     window.show()
-    tray = TrayIcon(app, parent=app)
+    tray = TrayIcon(app, config, parent=app)
     tray.show()
     app.exec_()
     tray = None

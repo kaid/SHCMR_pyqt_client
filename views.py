@@ -14,22 +14,23 @@ from PyQt4.QtGui import (QMainWindow,
                          qApp)
 
 from PyQt4.QtCore import QTimer, SIGNAL, QUrl
-from models import FileTransferSortProxyModel, Configuration
+from models import FileTransferSortProxyModel
 from delegates import FileTransferDelegate
 from utils import *
 
 class MyWindow(QMainWindow):
-    def __init__(self, parent=None):
+    def __init__(self, config, parent=None):
         super(MyWindow, self).__init__(parent)
         self.setWindowTitle('文件传输详情')
         self.setCentralWidget(FileTransferTable(parent=self))
-        self.__init_statusBar()
+        self.setWindowIcon(QIcon('s.png'))
+        self.__init_statusBar(config)
 
         # 界面调试按钮
         self.__debug_buttons()
 
-    def __init_statusBar(self):
-        self.setStatusBar(FileTransferStatusBar())
+    def __init_statusBar(self, config):
+        self.setStatusBar(FileTransferStatusBar(config))
         timer = QTimer(self)
         model = self.centralWidget().model()
         status_bar = self.statusBar()
@@ -72,12 +73,12 @@ class FileTransferTable(QTableView):
         self.setSelectionBehavior(QAbstractItemView.SelectRows)
 
 class FileTransferStatusBar(QStatusBar):
-    def __init__(self, parent=None):
+    def __init__(self, config, parent=None):
         super(FileTransferStatusBar, self).__init__(parent)
         self.set_transfer_count()
         self.set_time_left()
         self.set_global_speed()
-        self.init_config_button()
+        self.init_config_button(config)
         self.init_config_dialog()
 
     def set_transfer_count(self, count=0):
@@ -93,11 +94,11 @@ class FileTransferStatusBar(QStatusBar):
         self.__init_widget('global_speed', QLabel())
         self.global_speed.setText('全局速度: %s' % convert_byte_size(byte_per_second) + '/s')
 
-    def init_config_button(self):
+    def init_config_button(self, config):
         self.__init_widget('config_button', QPushButton())
         self.config_button.setText('设置同步目录')
         self.config_button.clicked.connect(self.show_config_dialog)
-        self.config = Configuration()
+        self.config = config
 
     def init_config_dialog(self):
         self.config_dialog = QFileDialog()
@@ -116,22 +117,24 @@ class FileTransferStatusBar(QStatusBar):
             self.addWidget(self.__dict__[attr_name])
 
 class TrayIcon(QSystemTrayIcon):
-    def __init__(self, app, parent=None):
+    def __init__(self, app, config, parent=None):
         super(TrayIcon, self).__init__(parent)
         self.setIcon(QIcon('s.png'))
-        self.setContextMenu(TrayMenu(app))
+        self.setContextMenu(TrayMenu(app, config))
         
 class TrayMenu(QMenu):
-    def __init__(self, app, parent=None):
+    def __init__(self, app, config, parent=None):
         super(TrayMenu, self).__init__(parent)
-        self.config = Configuration()
+        self.config = config
         self.app = app
         self.__setup_actions()
 
     def __setup_actions(self):
-        open_sync_dir = QAction('&打开同步目录 ', self.app)
-        open_sync_dir.triggered.connect(self.open_directory)
-        self.addAction(open_sync_dir)
+        self.open_directory_action = QAction('&打开同步目录 ', self.app)
+        self.open_directory_action.triggered.connect(self.open_directory)
+        self.config.have_updated.connect(self.__toggle_open_directory_action)
+        self.open_directory_action.setDisabled(not self.config.get_directory())
+        self.addAction(self.open_directory_action)
         self.recent_transfers = self.addMenu('&最近同步的文件 ')
         self.addSeparator()
         self.addAction(QAction('&退出 ', self.app, triggered=qApp.quit))
@@ -141,3 +144,5 @@ class TrayMenu(QMenu):
         directory = self.config.get_directory()
         QDesktopServices.openUrl(QUrl('file:///%s' % directory, QUrl.TolerantMode))
 
+    def __toggle_open_directory_action(self):
+        self.open_directory_action.setDisabled(not self.config.get_directory())
