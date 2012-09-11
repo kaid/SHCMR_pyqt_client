@@ -17,6 +17,7 @@ if __name__ == '__main__':
                name   VARCHAR(255) NOT NULL,\
                size   INT CHECK (size > 0)\
              )')
+
     q.exec_('CREATE TABLE IF NOT EXISTS configuration (\
                id        INTEGER PRIMARY KEY AUTOINCREMENT,\
                directory VARCHAR(255)\
@@ -26,6 +27,7 @@ if __name__ == '__main__':
     q.exec_('INSERT INTO file_list (id, status, name, size) VALUES(3, 1, \'zurich.mp4\',      9101244)')
     q.exec_('INSERT INTO file_list (id, status, name, size) VALUES(4, 1, \'armageddon.jpg\',  401244)')
     q.exec_('INSERT INTO file_list (id, status, name, size) VALUES(5, 0, \'larmageddon.jpg\', 401240)')
+    q.exec_('INSERT INTO configuration (id, directory) VALUES(1, \'目录\')')
     q.exec_('commit')
 
     window = MyWindow()

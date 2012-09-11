@@ -5,13 +5,14 @@ from PyQt4.QtGui import (QMainWindow,
                          QLabel,
                          QPushButton,
                          QSystemTrayIcon,
+                         QFileDialog,
                          QAction,
                          QIcon,
                          QMenu,
                          qApp)
 
 from PyQt4.QtCore import QTimer, SIGNAL
-from models import FileTransferSortProxyModel
+from models import FileTransferSortProxyModel, Configuration
 from delegates import FileTransferDelegate
 from utils import *
 
@@ -73,7 +74,9 @@ class FileTransferStatusBar(QStatusBar):
         self.set_transfer_count()
         self.set_time_left()
         self.set_global_speed()
-        
+        self.init_config_button()
+        self.init_config_dialog()
+
     def set_transfer_count(self, count=0):
         self.__init_widget('file_transfer_count', QLabel())
         self.file_transfer_count.setText('同步%d个文件' % count)
@@ -86,6 +89,23 @@ class FileTransferStatusBar(QStatusBar):
     def set_global_speed(self, byte_per_second=0.0):
         self.__init_widget('global_speed', QLabel())
         self.global_speed.setText('全局速度: %s' % convert_byte_size(byte_per_second) + '/s')
+
+    def init_config_button(self):
+        self.__init_widget('config_button', QPushButton())
+        self.config_button.setText('设置同步目录')
+        self.config_button.clicked.connect(self.show_config_dialog)
+        self.config = Configuration()
+
+    def init_config_dialog(self):
+        self.config_dialog = QFileDialog()
+        self.config_dialog.setFileMode(QFileDialog.Directory)
+        self.config_dialog.setViewMode(QFileDialog.List)
+
+    def show_config_dialog(self):
+        self.config_dialog.show()
+        if self.config_dialog.exec_():
+            self.config.set_directory(self.config_dialog.selectedFiles()[0])
+            print('当前同步目录: %s' % self.config.get_directory())
 
     def __init_widget(self, attr_name, widget):
         if not hasattr(self, attr_name):
@@ -109,5 +129,6 @@ class TrayMenu(QMenu):
         self.recent_transfers = self.addMenu('&最近同步的文件 ')
         self.addSeparator()
         self.addAction(QAction('&退出 ', self.app, triggered=qApp.quit))
-
         self.recent_transfers.addAction(QAction('&larmageddon.jpg ', self.app))
+
+    def open_directory(self):

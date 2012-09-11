@@ -6,7 +6,7 @@ from utils import *
 class FileTransferSortProxyModel(QSortFilterProxyModel):
     def __init__(self, parent=None):
         super(FileTransferSortProxyModel, self).__init__(parent)
-        self.setSourceModel(FileTransferTableModel('file_list', self))
+        self.setSourceModel(FileTransferTableModel())
         self.sort(0)
         self.set_calculated_column = self.sourceModel().set_calculated_column
         self.global_speed = self.sourceModel().global_speed
@@ -20,13 +20,12 @@ class FileTransferSortProxyModel(QSortFilterProxyModel):
 class FileTransferTableModel(QSqlTableModel):
     __calculated_column_index = {'progress':4, 'speed':5}
 
-    def __init__ (self, table, parent=None):
+    def __init__ (self, parent=None):
         super(FileTransferTableModel, self).__init__(parent)
-        self.setTable(table)
+        self.setTable('file_list')
         self.select()
         self.__columnCount = super().columnCount
         self.raw_data = super().data
-        self.insertColumns(4, 2)
         self.__calculated_column = dict()
         for key in self.__class__.__calculated_column_index:
             self.__calculated_column[key] = dict()
@@ -54,10 +53,7 @@ class FileTransferTableModel(QSqlTableModel):
         if role != Qt.DisplayRole:
             return None
         if orientation == Qt.Horizontal:
-            return ['id', '状态', '文件名', '大小', '进度', '速度', '所嘛'][section]
-
-    def insertColumns(self, column, count, parent=QModelIndex()):
-        return True
+            return ['id', '状态', '文件名', '大小', '进度', '速度'][section]
 
     def set_calculated_column(self, column, row, value):
         status = self.raw_data(self.index(row, 1))
@@ -95,3 +91,16 @@ class FileTransferTableModel(QSqlTableModel):
         time_left_collection = [self.time_left(row) for row in range(self.rowCount())]
         return sum(time_left_collection)
 
+class Configuration:
+    def __init__(self):
+        self.query = QSqlQuery()
+
+    def set_directory(self, directory):
+        self.query.prepare('UPDATE configuration SET directory=:directory WHERE id=1')
+        self.query.bindValue(':directory', directory)
+        self.query.exec_()
+
+    def get_directory(self):
+        self.query.exec_('SELECT directory FROM configuration WHERE id=1')
+        while self.query.next():
+            return self.query.value(0)
