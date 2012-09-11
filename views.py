@@ -5,13 +5,14 @@ from PyQt4.QtGui import (QMainWindow,
                          QLabel,
                          QPushButton,
                          QSystemTrayIcon,
+                         QDesktopServices,
                          QFileDialog,
                          QAction,
                          QIcon,
                          QMenu,
                          qApp)
 
-from PyQt4.QtCore import QTimer, SIGNAL
+from PyQt4.QtCore import QTimer, SIGNAL, QUrl
 from models import FileTransferSortProxyModel, Configuration
 from delegates import FileTransferDelegate
 from utils import *
@@ -121,14 +122,20 @@ class TrayIcon(QSystemTrayIcon):
 class TrayMenu(QMenu):
     def __init__(self, app, parent=None):
         super(TrayMenu, self).__init__(parent)
+        self.config = Configuration()
         self.app = app
         self.__setup_actions()
 
     def __setup_actions(self):
-        self.addAction(QAction('&打开同步目录 ', self.app))
+        open_sync_dir = QAction('&打开同步目录 ', self.app)
+        open_sync_dir.triggered.connect(self.open_directory)
+        self.addAction(open_sync_dir)
         self.recent_transfers = self.addMenu('&最近同步的文件 ')
         self.addSeparator()
         self.addAction(QAction('&退出 ', self.app, triggered=qApp.quit))
         self.recent_transfers.addAction(QAction('&larmageddon.jpg ', self.app))
 
     def open_directory(self):
+        directory = self.config.get_directory()
+        QDesktopServices.openUrl(QUrl('file:///%s' % directory, QUrl.TolerantMode))
+

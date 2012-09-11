@@ -1,6 +1,6 @@
 from PyQt4.QtGui import QSortFilterProxyModel
 from PyQt4.QtSql import QSqlTableModel, QSqlQuery
-from PyQt4.QtCore import Qt, QModelIndex, SIGNAL
+from PyQt4.QtCore import Qt, QModelIndex, SIGNAL, QDir
 from utils import *
 
 class FileTransferSortProxyModel(QSortFilterProxyModel):
@@ -94,6 +94,8 @@ class FileTransferTableModel(QSqlTableModel):
 class Configuration:
     def __init__(self):
         self.query = QSqlQuery()
+        if not self.get_directory():
+            self.set_directory(QDir.homePath())
 
     def set_directory(self, directory):
         self.query.prepare('UPDATE configuration SET directory=:directory WHERE id=1')
