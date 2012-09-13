@@ -1,6 +1,6 @@
-from PyQt4.QtGui import QSortFilterProxyModel
+from PyQt4.QtGui import QSortFilterProxyModel, QApplication
 from PyQt4.QtSql import QSqlTableModel, QSqlQuery
-from PyQt4.QtCore import Qt, QModelIndex, SIGNAL, QDir, pyqtSignal, QObject
+from PyQt4.QtCore import Qt, QModelIndex, SIGNAL, QDir, pyqtSignal, QObject, QDirIterator, QFileInfo, QEventLoop
 from utils import *
 
 class FileTransferSortProxyModel(QSortFilterProxyModel):
@@ -12,6 +12,7 @@ class FileTransferSortProxyModel(QSortFilterProxyModel):
         self.global_speed = self.sourceModel().global_speed
         self.global_time_left = self.sourceModel().global_time_left
         self.transfer_count = self.sourceModel().transfer_count
+        self.scan_files = self.sourceModel().scan_files
 
     def lessThan(self, left_index, right_index):
         if not (left_index.data() and right_index.data()): return False
@@ -21,7 +22,7 @@ class FileTransferSortProxyModel(QSortFilterProxyModel):
         return Qt.ItemIsEnabled | Qt.ItemIsSelectable
 
 class FileTransferTableModel(QSqlTableModel):
-    __calculated_column_index = {'progress':4, 'speed':5}
+    __calculated_column_index = {'progress':7, 'speed':8}
 
     def __init__ (self, parent=None):
         super(FileTransferTableModel, self).__init__(parent)
@@ -30,10 +31,11 @@ class FileTransferTableModel(QSqlTableModel):
         self.__columnCount = super().columnCount
         self.raw_data = super().data
         self.__calculated_column = dict()
+        self.query = QSqlQuery()
         for key in self.__class__.__calculated_column_index:
             self.__calculated_column[key] = dict()
 
-    def columnCount(self, parent):
+    def columnCount(self, parent=QModelIndex()):
         return self.__columnCount(parent) + len(self.__class__.__calculated_column_index)
 
     def data(self, index, role=Qt.DisplayRole):
@@ -45,9 +47,9 @@ class FileTransferTableModel(QSqlTableModel):
                 return status and '同步中' or '同步完毕'
             if 3 == index.column():
                 return convert_byte_size(int(self.raw_data(index)))
-            if 4 == index.column() and status:
+            if 7 == index.column() and status:
                 return self.__calculated_column['progress'].get(fid, 0)
-            if 5 == index.column() and status:
+            if 8 == index.column() and status:
                 return convert_byte_size(int(self.__calculated_column['speed'].get(fid, 0))) + '/s'
 
         return self.raw_data(index, role)
@@ -56,7 +58,7 @@ class FileTransferTableModel(QSqlTableModel):
         if role != Qt.DisplayRole:
             return None
         if orientation == Qt.Horizontal:
-            return ['id', '状态', '文件名', '大小', '进度', '速度'][section]
+            return ['id', '状态', '文件名', '大小', '路径', '类型', '最近修改于', '进度', '速度'][section]
 
     def set_calculated_column(self, column, row, value):
         status = self.raw_data(self.index(row, 1))
@@ -65,19 +67,15 @@ class FileTransferTableModel(QSqlTableModel):
         fid = self.raw_data(self.index(row, 0))
         index = self.index(row, self.__class__.__calculated_column_index[column])
         self.__calculated_column[column][fid] = value
-        self.emit(SIGNAL("dataChanged(QModelIndex,QModelIndex)"), index, index)
+        self.dataChanged.emit(index, index)
         return True
 
     def global_speed(self):
         return sum(self.__calculated_column['speed'].values())
 
     def transfer_count(self):
-        query = QSqlQuery('SELECT SUM(status) FROM file_list')
-        while query.next():
-            return query.value(0)
-
-    def total_size(self):
-        query = QSqlQuery('SELECT SUM(size) FROM file_list')
+        query = self.query
+        query.exec_('SELECT SUM(status) FROM file_list')
         while query.next():
             return query.value(0)
 
@@ -93,6 +91,31 @@ class FileTransferTableModel(QSqlTableModel):
     def global_time_left(self):
         time_left_collection = [self.time_left(row) for row in range(self.rowCount())]
         return sum(time_left_collection)
+
+    def scan_files(self, directory):
+        iterator = QDirIterator(directory, QDirIterator.Subdirectories)
+        self.file_infos = []
+        while iterator.hasNext():
+            info = QFileInfo(iterator.next())
+            if (info.fileName() != '.') and (info.fileName() != '..'):
+                self.file_infos.append(info)
+
+        for info in self.file_infos:
+            QApplication.processEvents(QEventLoop.AllEvents)
+            self.__insert_info(info)
+
+        self.select()
+
+    def __insert_info(self, info):
+        query = self.query
+        query.prepare('INSERT INTO file_list (name, size, path, is_dir, modified_at) VALUES (:name, :size, :path, :is_dir, :modified_at)')
+        query.bindValue(':name', info.fileName())
+        query.bindValue(':size', info.size())
+        query.bindValue(':path', info.absoluteFilePath())
+        query.bindValue(':is_dir', info.isDir() and 1 or 0)
+        query.bindValue(':modified_at', convert_time(info.lastModified()))
+        query.exec_()
+
 
 class Configuration(QObject):
     have_updated = pyqtSignal()

@@ -13,7 +13,7 @@ from PyQt4.QtGui import (QMainWindow,
                          QMenu,
                          qApp)
 
-from PyQt4.QtCore import QTimer, SIGNAL, QUrl
+from PyQt4.QtCore import QTimer, SIGNAL, QUrl, QThreadPool
 from models import FileTransferSortProxyModel
 from delegates import FileTransferDelegate
 from utils import *
@@ -21,16 +21,18 @@ from utils import *
 class MyWindow(QMainWindow):
     def __init__(self, config, parent=None):
         super(MyWindow, self).__init__(parent)
+        self.config = config
         self.setWindowTitle('文件传输详情')
         self.setCentralWidget(FileTransferTable(parent=self))
         self.setWindowIcon(QIcon('s.png'))
-        self.__init_statusBar(config)
+        self.worker = Worker()
+        self.__init_statusBar()
 
         # 界面调试按钮
         self.__debug_buttons()
 
-    def __init_statusBar(self, config):
-        self.setStatusBar(FileTransferStatusBar(config))
+    def __init_statusBar(self):
+        self.setStatusBar(FileTransferStatusBar(self.config))
         timer = QTimer(self)
         model = self.centralWidget().model()
         status_bar = self.statusBar()
@@ -44,10 +46,13 @@ class MyWindow(QMainWindow):
         status_bar = self.statusBar()
         status_bar.progress_button = QPushButton('进度')
         status_bar.speed_button = QPushButton('速度')
+        status_bar.scan_button = QPushButton('扫描目录')
+        status_bar.addWidget(status_bar.scan_button)
         status_bar.addWidget(status_bar.progress_button)
         status_bar.addWidget(status_bar.speed_button)
         status_bar.progress_button.clicked.connect(self.__random_progress)
         status_bar.speed_button.clicked.connect(self.__random_speed)
+        status_bar.scan_button.clicked.connect(self.__scan_files)
 
     def __random_progress(self):
         model = self.centralWidget().model()
@@ -57,7 +62,12 @@ class MyWindow(QMainWindow):
     def __random_speed(self):
         model = self.centralWidget().model()
         for row in range(model.rowCount()):
-            model.set_calculated_column('speed', row, random.randint(0, 9999999))
+            model.set_calculated_column('speed', row, random.randint(0, 2000))
+
+    def __scan_files(self):
+        job = self.centralWidget().model().scan_files
+        arg = self.config.get_directory()
+        job(arg)
 
 class FileTransferTable(QTableView):
     def __init__(self, parent=None):
@@ -70,6 +80,9 @@ class FileTransferTable(QTableView):
         self.horizontalHeader().setStretchLastSection(True)
         self.setSortingEnabled(True)
         self.setColumnHidden(0, True)
+        self.setColumnHidden(4, True)
+        self.setColumnHidden(5, True)
+        self.setColumnHidden(6, True)
         self.setSelectionBehavior(QAbstractItemView.SelectRows)
 
 class FileTransferStatusBar(QStatusBar):
@@ -83,7 +96,7 @@ class FileTransferStatusBar(QStatusBar):
 
     def set_transfer_count(self, count=0):
         self.__init_widget('file_transfer_count', QLabel())
-        self.file_transfer_count.setText('同步%d个文件' % count)
+        self.file_transfer_count.setText('同步%d个文件' % (count or 0))
 
     def set_time_left(self, seconds_left=-1):
         text = 0 > seconds_left and '无法估计' or format_time(seconds_left)

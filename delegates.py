@@ -3,7 +3,7 @@ from PyQt4.QtCore import Qt
 
 class FileTransferDelegate(QStyledItemDelegate):
     def paint(self, painter, option, index):
-        if 4 == index.column():
+        if 7 == index.column():
             value = index.data(Qt.DisplayRole)
             if value != None:
                 opts = QStyleOptionProgressBarV2()
