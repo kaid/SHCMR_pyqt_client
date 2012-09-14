@@ -8,12 +8,8 @@ class FileTransferSortProxyModel(QSortFilterProxyModel):
     def __init__(self, parent=None):
         super(FileTransferSortProxyModel, self).__init__(parent)
         self.setSourceModel(FileTransferTableModel())
+        self.__method_forward()
         self.sort(0)
-        self.set_calculated_column = self.sourceModel().set_calculated_column
-        self.global_speed = self.sourceModel().global_speed
-        self.global_time_left = self.sourceModel().global_time_left
-        self.transfer_count = self.sourceModel().transfer_count
-        self.scan_files = self.sourceModel().scan_files
 
     def lessThan(self, left_index, right_index):
         left = self.sourceModel().raw_data(left_index)
@@ -24,6 +20,13 @@ class FileTransferSortProxyModel(QSortFilterProxyModel):
 
     def flags(self, index):
         return Qt.ItemIsEnabled | Qt.ItemIsSelectable
+
+    def __method_forward(self):
+        self.global_speed = self.sourceModel().global_speed
+        self.global_time_left = self.sourceModel().global_time_left
+        self.set_calculated_column = self.sourceModel().set_calculated_column
+        self.transfer_count = self.sourceModel().transfer_count
+        self.scan_files = self.sourceModel().scan_files
 
 class FileTransferTableModel(QSqlTableModel):
     __calculated_column_index = {'progress':7, 'speed':8}
