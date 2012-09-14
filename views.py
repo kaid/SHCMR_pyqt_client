@@ -25,7 +25,6 @@ class MyWindow(QMainWindow):
         self.setWindowTitle('文件传输详情')
         self.setCentralWidget(FileTransferTable(parent=self))
         self.setWindowIcon(QIcon('s.png'))
-        self.worker = Worker()
         self.__init_statusBar()
 
         # 界面调试按钮
@@ -80,9 +79,9 @@ class FileTransferTable(QTableView):
         self.horizontalHeader().setStretchLastSection(True)
         self.setSortingEnabled(True)
         self.setColumnHidden(0, True)
-        self.setColumnHidden(4, True)
-        self.setColumnHidden(5, True)
-        self.setColumnHidden(6, True)
+        # self.setColumnHidden(4, True)
+        # self.setColumnHidden(5, True)
+        # self.setColumnHidden(6, True)
         self.setSelectionBehavior(QAbstractItemView.SelectRows)
 
 class FileTransferStatusBar(QStatusBar):

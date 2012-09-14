@@ -35,7 +35,7 @@ if __name__ == '__main__':
 
     config = Configuration()
     window = MyWindow(config)
-    window.resize(640, 240)
+    window.resize(800, 400)
     window.show()
     tray = TrayIcon(app, config, parent=app)
     tray.show()

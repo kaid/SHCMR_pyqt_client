@@ -1,3 +1,4 @@
+import datetime
 from PyQt4.QtGui import QSortFilterProxyModel, QApplication
 from PyQt4.QtSql import QSqlTableModel, QSqlQuery
 from PyQt4.QtCore import Qt, QModelIndex, SIGNAL, QDir, pyqtSignal, QObject, QDirIterator, QFileInfo, QEventLoop
@@ -48,6 +49,10 @@ class FileTransferTableModel(QSqlTableModel):
                 return status and '同步中' or '同步完毕'
             if 3 == index.column():
                 return convert_byte_size(int(data))
+            if 5 == index.column():
+                return data and '文件' or '目录'
+            if 6 == index.column():
+                return datetime.datetime.fromtimestamp(data).isoformat(' ')
             if 7 == index.column() and status:
                 return data
             if 8 == index.column() and status:
