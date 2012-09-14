@@ -1,7 +1,7 @@
 import datetime
 from PyQt4.QtGui import QSortFilterProxyModel, QApplication
 from PyQt4.QtSql import QSqlTableModel, QSqlQuery
-from PyQt4.QtCore import Qt, QModelIndex, SIGNAL, QDir, pyqtSignal, QObject, QDirIterator, QFileInfo, QEventLoop
+from PyQt4.QtCore import Qt, QModelIndex, SIGNAL, QDir, pyqtSignal, QObject, QDirIterator, QFileInfo, QEventLoop, QPyNullVariant
 from utils import *
 
 class FileTransferSortProxyModel(QSortFilterProxyModel):
@@ -19,7 +19,7 @@ class FileTransferSortProxyModel(QSortFilterProxyModel):
         left = self.sourceModel().raw_data(left_index)
         right = self.sourceModel().raw_data(right_index)
 
-        if (left == None and right == None): return False
+        if (left == None or right == None): return True
         return left < right
 
     def flags(self, index):
@@ -46,12 +46,14 @@ class FileTransferTableModel(QSqlTableModel):
             status = super().data(self.index(index.row(), 1))
             data = self.raw_data(index)
             if 1 == index.column():
-                return status and '同步中' or '同步完毕'
+                return '同步中' if status else '同步完毕'
             if 3 == index.column():
                 return convert_byte_size(int(data))
             if 5 == index.column():
-                return data and '文件' or '目录'
+                return '目录' if data else '文件'
             if 6 == index.column():
+                if data < 0:
+                    return
                 return datetime.datetime.fromtimestamp(data).isoformat(' ')
             if 7 == index.column() and status:
                 return data
@@ -129,8 +131,8 @@ class FileTransferTableModel(QSqlTableModel):
         query.bindValue(':name', info.fileName())
         query.bindValue(':size', info.size())
         query.bindValue(':path', info.absoluteFilePath())
-        query.bindValue(':is_dir', info.isDir() and 1 or 0)
-        query.bindValue(':modified_at', convert_time(info.lastModified()))
+        query.bindValue(':is_dir', 1 if info.isDir() else 0)
+        query.bindValue(':modified_at', -1 if info.isDir() else convert_time(info.lastModified()))
         query.exec_()
 
 
