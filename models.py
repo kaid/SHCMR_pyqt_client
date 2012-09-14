@@ -18,7 +18,7 @@ class FileTransferSortProxyModel(QSortFilterProxyModel):
         left = self.sourceModel().raw_data(left_index)
         right = self.sourceModel().raw_data(right_index)
 
-        if not (left and right): return False
+        if (left == None and right == None): return False
         return left < right
 
     def flags(self, index):
@@ -42,17 +42,16 @@ class FileTransferTableModel(QSqlTableModel):
 
     def data(self, index, role=Qt.DisplayRole):
         if Qt.DisplayRole == role:
-            status = self.raw_data(self.index(index.row(), 1))
-            fid = self.raw_data(self.index(index.row(), 0))
-
+            status = super().data(self.index(index.row(), 1))
+            data = self.raw_data(index)
             if 1 == index.column():
                 return status and '同步中' or '同步完毕'
             if 3 == index.column():
-                return convert_byte_size(int(self.raw_data(index)))
+                return convert_byte_size(int(data))
             if 7 == index.column() and status:
-                return self.__calculated_column['progress'].get(fid, 0)
+                return data
             if 8 == index.column() and status:
-                return convert_byte_size(int(self.__calculated_column['speed'].get(fid, 0))) + '/s'
+                return convert_byte_size(int(data)) + '/s'
 
         return self.raw_data(index, role)
 
@@ -74,13 +73,10 @@ class FileTransferTableModel(QSqlTableModel):
 
     def raw_data(self, index, role=Qt.DisplayRole):
         if Qt.DisplayRole == role:
-            status = super().data(self.index(index.row(), 1))
             fid = super().data(self.index(index.row(), 0))
-
-            if 7 == index.column() and status:
+            if 7 == index.column():
                 return self.__calculated_column['progress'].get(fid, 0)
-
-            if 8 == index.column() and status:
+            if 8 == index.column():
                 return int(self.__calculated_column['speed'].get(fid, 0))
 
         return super().data(index, role)
