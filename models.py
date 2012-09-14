@@ -15,8 +15,11 @@ class FileTransferSortProxyModel(QSortFilterProxyModel):
         self.scan_files = self.sourceModel().scan_files
 
     def lessThan(self, left_index, right_index):
-        if not (left_index.data() and right_index.data()): return False
-        return left_index.data() < right_index.data()
+        left = self.sourceModel().raw_data(left_index)
+        right = self.sourceModel().raw_data(right_index)
+
+        if not (left and right): return False
+        return left < right
 
     def flags(self, index):
         return Qt.ItemIsEnabled | Qt.ItemIsSelectable
@@ -29,7 +32,6 @@ class FileTransferTableModel(QSqlTableModel):
         self.setTable('file_list')
         self.select()
         self.__columnCount = super().columnCount
-        self.raw_data = super().data
         self.__calculated_column = dict()
         self.query = QSqlQuery()
         for key in self.__class__.__calculated_column_index:
@@ -70,6 +72,19 @@ class FileTransferTableModel(QSqlTableModel):
         self.dataChanged.emit(index, index)
         return True
 
+    def raw_data(self, index, role=Qt.DisplayRole):
+        if Qt.DisplayRole == role:
+            status = super().data(self.index(index.row(), 1))
+            fid = super().data(self.index(index.row(), 0))
+
+            if 7 == index.column() and status:
+                return self.__calculated_column['progress'].get(fid, 0)
+
+            if 8 == index.column() and status:
+                return int(self.__calculated_column['speed'].get(fid, 0))
+
+        return super().data(index, role)
+
     def global_speed(self):
         return sum(self.__calculated_column['speed'].values())
 
@@ -96,6 +111,7 @@ class FileTransferTableModel(QSqlTableModel):
         iterator = QDirIterator(directory, QDirIterator.Subdirectories)
         self.file_infos = []
         while iterator.hasNext():
+            QApplication.processEvents(QEventLoop.AllEvents)
             info = QFileInfo(iterator.next())
             if (info.fileName() != '.') and (info.fileName() != '..'):
                 self.file_infos.append(info)
