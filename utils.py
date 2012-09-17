@@ -43,24 +43,32 @@ class DirFileInfoList(QObject):
             info = QFileInfo(self.iterator.next())
             self.file_infos.append(info)
 
-
 class FSMonitor(QObject):
     def __init__(self, parent=None):
         super(FSMonitor, self).__init__(parent)
         self.__init_watcher()
+        self.watching_list = []
 
     def watch(self, directory):
         if self.__dict__.get('directory', False):
-            self.watcher.removePath(self.directory)
+            self.watcher.removePaths(self.watching_list)
         self.directory = directory
-        self.watcher.addPath(directory)
+        self.watching_list = list(map(lambda info: info.absoluteFilePath(),
+                                      DirFileInfoList(directory).file_infos))
+        self.watcher.addPaths(self.watching_list)
 
     def __init_watcher(self):
         self.watcher = watcher = QFileSystemWatcher()
-        watcher.directoryChanged.connect(self.__file_changed)
+        watcher.directoryChanged.connect(self.__directory_changed)
+        watcher.fileChanged.connect(self.__file_changed)
+        watcher.directoryChanged.connect(self.__update_watching_list)
+        watcher.fileChanged.connect(self.__update_watching_list)
 
-    def __file_changed(self):
-        print('some files changed yada lalala')
+    def __update_watching_list(self, path):
+        1
 
-    def __directory_changed(self):
-        print('some directory changed yada lalala')
+    def __file_changed(self, path):
+        print('some files has been changed %s' % path)
+
+    def __directory_changed(self, path):
+        print('some directories have been changed %s' % path)

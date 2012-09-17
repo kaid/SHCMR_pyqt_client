@@ -47,13 +47,15 @@ class MyWindow(QMainWindow):
         status_bar.progress_button = QPushButton('进度')
         status_bar.speed_button = QPushButton('速度')
         status_bar.scan_button = QPushButton('扫描目录')
+        status_bar.cleandb_button = QPushButton('清空文件列表')
         status_bar.addWidget(status_bar.scan_button)
         status_bar.addWidget(status_bar.progress_button)
         status_bar.addWidget(status_bar.speed_button)
+        status_bar.addWidget(status_bar.cleandb_button)
         status_bar.progress_button.clicked.connect(self.__random_progress)
         status_bar.speed_button.clicked.connect(self.__random_speed)
         status_bar.scan_button.clicked.connect(self.__scan_files)
-        #status_bar.cleandb_button.clicked.connet(self._cleandb)
+        status_bar.cleandb_button.clicked.connect(self.__cleandb)
 
     def __random_progress(self):
         model = self.centralWidget().model()
@@ -71,7 +73,9 @@ class MyWindow(QMainWindow):
         job(arg)
 
     def __cleandb(self):
-        1#QSqlQuery('TRUNCATE TABLE file_list')
+        model = self.centralWidget().model().sourceModel()
+        model.query.exec_('DELETE FROM file_list')
+        model.select()
 
 class FileTransferTable(QTableView):
     def __init__(self, parent=None):
