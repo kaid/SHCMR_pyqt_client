@@ -14,6 +14,7 @@ from PyQt4.QtGui import (QMainWindow,
                          qApp)
 
 from PyQt4.QtCore import QTimer, SIGNAL, QUrl, QThreadPool
+from PyQt4.QtSql import QSqlQuery
 from models import FileTransferSortProxyModel
 from delegates import FileTransferDelegate
 from utils import *
@@ -52,6 +53,7 @@ class MyWindow(QMainWindow):
         status_bar.progress_button.clicked.connect(self.__random_progress)
         status_bar.speed_button.clicked.connect(self.__random_speed)
         status_bar.scan_button.clicked.connect(self.__scan_files)
+        #status_bar.cleandb_button.clicked.connet(self._cleandb)
 
     def __random_progress(self):
         model = self.centralWidget().model()
@@ -67,6 +69,9 @@ class MyWindow(QMainWindow):
         job = self.centralWidget().model().scan_files
         arg = self.config.get_directory()
         job(arg)
+
+    def __cleandb(self):
+        1#QSqlQuery('TRUNCATE TABLE file_list')
 
 class FileTransferTable(QTableView):
     def __init__(self, parent=None):

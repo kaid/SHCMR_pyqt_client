@@ -6,8 +6,8 @@ from models import Configuration
 from views import MyWindow, FileTransferStatusBar, TrayIcon
 
 def database_setup():
-    db = QSqlDatabase.addDatabase("QSQLITE")
-    db.setDatabaseName("database.db")
+    db = QSqlDatabase.addDatabase('QSQLITE')
+    db.setDatabaseName('database.db')
     db.open()
 
 def sql_setup():
@@ -31,8 +31,8 @@ def sql_setup():
 
 
 def main():
-    database_setup()
     app = QApplication(sys.argv)
+    database_setup()
     sql_setup()
     config = Configuration()
     window = MyWindow(config)
@@ -44,6 +44,7 @@ def main():
     tray = None
     sys.exit()
 
-main()
+if __name__ == '__main__':
+    main()
 
 
