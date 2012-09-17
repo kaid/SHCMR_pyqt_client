@@ -31,8 +31,11 @@ class FileTransferSortProxyModel(QSortFilterProxyModel):
 class FileTransferTableModel(QSqlTableModel):
     __calculated_column_index = {'progress':7, 'speed':8}
 
+    scanned = pyqtSignal()
+
     def __init__ (self, parent=None):
         super(FileTransferTableModel, self).__init__(parent)
+        self.worker = Worker()
         self.setTable('file_list')
         self.select()
         self.__columnCount = super().columnCount
@@ -114,18 +117,24 @@ class FileTransferTableModel(QSqlTableModel):
         return sum(time_left_collection)
 
     def scan_files(self, directory):
+        self.scanned.connect(self.__batch_insert)
+        self.worker.begin(self.__file_iteration, directory)
+
+    def __file_iteration(self, directory):
         iterator = QDirIterator(directory, QDirIterator.Subdirectories)
         self.file_infos = []
         while iterator.hasNext():
-            QApplication.processEvents(QEventLoop.AllEvents)
             info = QFileInfo(iterator.next())
             if (info.fileName() != '.') and (info.fileName() != '..'):
                 self.file_infos.append(info)
 
+        self.scanned.emit()
+
+    def __batch_insert(self):
         for info in self.file_infos:
             QApplication.processEvents(QEventLoop.AllEvents)
             self.__insert_info(info)
-
+        
         self.select()
 
     def __insert_info(self, info):
