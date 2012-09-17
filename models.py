@@ -1,7 +1,7 @@
 import datetime
 from PyQt4.QtGui import QSortFilterProxyModel, QApplication
 from PyQt4.QtSql import QSqlTableModel, QSqlQuery
-from PyQt4.QtCore import Qt, QModelIndex, SIGNAL, QDir, pyqtSignal, QObject, QDirIterator, QFileInfo, QEventLoop, QPyNullVariant
+from PyQt4.QtCore import Qt, QModelIndex, SIGNAL, QDir, pyqtSignal, QObject, QDirIterator, QFileInfo, QEventLoop, QFileSystemWatcher
 from utils import *
 
 class FileTransferSortProxyModel(QSortFilterProxyModel):
@@ -30,8 +30,6 @@ class FileTransferSortProxyModel(QSortFilterProxyModel):
 
 class FileTransferTableModel(QSqlTableModel):
     __calculated_column_index = {'progress':7, 'speed':8}
-
-    scanned = pyqtSignal()
 
     def __init__ (self, parent=None):
         super(FileTransferTableModel, self).__init__(parent)
@@ -117,7 +115,7 @@ class FileTransferTableModel(QSqlTableModel):
         return sum(time_left_collection)
 
     def scan_files(self, directory):
-        self.scanned.connect(self.__batch_insert)
+        self.worker.done.connect(self.__batch_insert)
         self.worker.begin(self.__file_iteration, directory)
 
     def __file_iteration(self, directory):
@@ -127,8 +125,6 @@ class FileTransferTableModel(QSqlTableModel):
             info = QFileInfo(iterator.next())
             if (info.fileName() != '.') and (info.fileName() != '..'):
                 self.file_infos.append(info)
-
-        self.scanned.emit()
 
     def __batch_insert(self):
         for info in self.file_infos:
