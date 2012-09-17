@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import sys
+from utils import *
 from PyQt4.QtGui import QApplication, QIcon
 from PyQt4.QtSql import QSqlDatabase, QSqlQuery
 from models import Configuration
@@ -30,11 +31,19 @@ def sql_setup():
     query.exec_('commit')
 
 
+def init_monitor(config):
+    monitor = FSMonitor()
+    directory = config.get_directory()
+    if directory:
+        monitor.watch(config.get_directory())
+    config.have_updated.connect(lambda:monitor.watch(config.get_directory()))
+
 def main():
     app = QApplication(sys.argv)
     database_setup()
     sql_setup()
     config = Configuration()
+    init_monitor(config)
     window = MyWindow(config)
     window.resize(800, 400)
     window.show()

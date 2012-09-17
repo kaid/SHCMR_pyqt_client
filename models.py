@@ -1,7 +1,7 @@
 import datetime
 from PyQt4.QtGui import QSortFilterProxyModel, QApplication
 from PyQt4.QtSql import QSqlTableModel, QSqlQuery
-from PyQt4.QtCore import Qt, QModelIndex, SIGNAL, QDir, pyqtSignal, QObject, QDirIterator, QFileInfo, QEventLoop, QFileSystemWatcher
+from PyQt4.QtCore import Qt, QModelIndex, SIGNAL, pyqtSignal, QObject, QEventLoop
 from utils import *
 
 class FileTransferSortProxyModel(QSortFilterProxyModel):
@@ -119,12 +119,7 @@ class FileTransferTableModel(QSqlTableModel):
         self.worker.begin(self.__file_iteration, directory)
 
     def __file_iteration(self, directory):
-        iterator = QDirIterator(directory, QDirIterator.Subdirectories)
-        self.file_infos = []
-        while iterator.hasNext():
-            info = QFileInfo(iterator.next())
-            if (info.fileName() != '.') and (info.fileName() != '..'):
-                self.file_infos.append(info)
+        self.file_infos = DirFileInfoList(directory).file_infos
 
     def __batch_insert(self):
         for info in self.file_infos:

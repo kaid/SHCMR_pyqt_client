@@ -1,5 +1,5 @@
 import time
-from PyQt4.QtCore import Qt, QThread, pyqtSignal
+from PyQt4.QtCore import Qt, QThread, pyqtSignal, QFileSystemWatcher, QObject, QDir, QDirIterator, QFileInfo
 
 def convert_byte_size(byte_size):
     for unit in ['bytes','KB','MB','GB','TB']:
@@ -28,3 +28,39 @@ class Worker(QThread):
     def run(self):
         self.__job(*self.__args)
         self.done.emit()
+
+class DirFileInfoList(QObject):
+    def __init__(self, directory, parent=None):
+        super(DirFileInfoList, self).__init__(parent)
+        self.iterator = QDirIterator(directory,
+                                     QDir.AllEntries | QDir.NoDotAndDotDot,
+                                     QDirIterator.Subdirectories)
+        self.__iterate_files()
+
+    def __iterate_files(self):
+        self.file_infos = []
+        while self.iterator.hasNext():
+            info = QFileInfo(self.iterator.next())
+            self.file_infos.append(info)
+
+
+class FSMonitor(QObject):
+    def __init__(self, parent=None):
+        super(FSMonitor, self).__init__(parent)
+        self.__init_watcher()
+
+    def watch(self, directory):
+        if self.__dict__.get('directory', False):
+            self.watcher.removePath(self.directory)
+        self.directory = directory
+        self.watcher.addPath(directory)
+
+    def __init_watcher(self):
+        self.watcher = watcher = QFileSystemWatcher()
+        watcher.directoryChanged.connect(self.__file_changed)
+
+    def __file_changed(self):
+        print('some files changed yada lalala')
+
+    def __directory_changed(self):
+        print('some directory changed yada lalala')
