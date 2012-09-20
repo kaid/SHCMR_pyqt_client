@@ -31,20 +31,22 @@ def sql_setup():
     query.exec_('commit')
 
 
-def init_monitor(config):
+def init_monitor(config, model):
     monitor = FSMonitor()
     directory = config.get_directory()
     if directory:
         monitor.watch(config.get_directory())
     config.have_updated.connect(lambda:monitor.watch(config.get_directory()))
+    monitor.scanned.connect(model.merge_changes)
 
 def main():
     app = QApplication(sys.argv)
     database_setup()
     sql_setup()
     config = Configuration()
-    init_monitor(config)
     window = MyWindow(config)
+    model = window.centralWidget().model().sourceModel()
+    init_monitor(config, model)
     window.resize(800, 400)
     window.show()
     tray = TrayIcon(app, config, parent=app)

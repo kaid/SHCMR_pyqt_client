@@ -1,7 +1,7 @@
 import datetime
 from PyQt4.QtGui import QSortFilterProxyModel, QApplication
 from PyQt4.QtSql import QSqlTableModel, QSqlQuery
-from PyQt4.QtCore import Qt, QModelIndex, SIGNAL, pyqtSignal, QObject, QEventLoop
+from PyQt4.QtCore import Qt, QModelIndex, SIGNAL, pyqtSignal, QObject, QEventLoop, QFileInfo
 from utils import *
 
 class FileTransferSortProxyModel(QSortFilterProxyModel):
@@ -121,22 +121,74 @@ class FileTransferTableModel(QSqlTableModel):
     def __file_iteration(self, directory):
         self.file_infos = DirFileInfoList(directory).file_infos
 
-    def __batch_insert(self):
-        for info in self.file_infos:
+    def __batch_insert(self, infos=None):
+        if infos == None:
+            infos = self.file_infos
+        for info in infos:
             QApplication.processEvents(QEventLoop.AllEvents)
-            self.__insert_info(info)
+            self.__insert_record(info)
         
         self.select()
 
-    def __insert_info(self, info):
+    def __batch_update(self, infos):
+        for info in infos:
+            QApplication.processEvents(QEventLoop.AllEvents)
+            self.__update_record(info)
+        
+        self.select()
+
+    def __batch_delete(self, paths):
+        for path in paths:
+            QApplication.processEvents(QEventLoop.AllEvents)
+            self.__delete_record(path)
+        
+        self.select()
+
+    def __delete_record(self, path):
+        query = self.query
+        string = 'DELETE FROM file_list WHERE path="%s"' % path
+        query.exec_(string)
+
+    def __insert_record(self, info):
         query = self.query
         query.prepare('INSERT INTO file_list (name, size, path, is_dir, modified_at) VALUES (:name, :size, :path, :is_dir, :modified_at)')
         query.bindValue(':name', info.fileName())
         query.bindValue(':size', info.size())
         query.bindValue(':path', info.absoluteFilePath())
         query.bindValue(':is_dir', 1 if info.isDir() else 0)
-        query.bindValue(':modified_at', -1 if info.isDir() else convert_time(info.lastModified()))
+        query.bindValue(':modified_at', -1 if info.isDir() else convert_time(info.lastModified() or info.created()))
         query.exec_()
+
+    def __update_record(self, info):
+        query = self.query
+        string = 'UPDATE file_list SET modified_at=%d, size=%d WHERE path="%s"' % (
+            -1 if info.isDir() else convert_time(info.lastModified() or info.created()),
+            info.size(),
+            info.absoluteFilePath(), 
+        )
+        query.exec_(string)
+
+    def get_meta_dict(self):
+        query = self.query
+        query.exec_('SELECT * FROM file_list')
+        path_number, modified_at_number = query.record().indexOf('path'), query.record().indexOf('modified_at')
+        meta_dict = {}
+        while query.next():
+            path, modified_at = query.value(path_number), query.value(modified_at_number)
+            meta_dict[path] = modified_at
+        return meta_dict
+
+    def merge_changes(self, new_meta_dict):
+        query = self.query
+        differ = DictDiffer(new_meta_dict, self.get_meta_dict())
+        removed_files = list(differ.removed())
+        added_files = [QFileInfo(path) for path in differ.added()]
+        modified_files = [QFileInfo(path) for path in differ.changed()]
+
+        print('>>>> these files have been changed ', differ.changed())
+        self.__batch_delete(removed_files)
+        self.__batch_update(modified_files)
+        self.__batch_insert(infos=added_files)
 
 
 class Configuration(QObject):
