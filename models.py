@@ -8,18 +8,9 @@ class FileTransferSortProxyModel(QSortFilterProxyModel):
     def __init__(self, parent=None):
         super(FileTransferSortProxyModel, self).__init__(parent)
         self.setSourceModel(FileTransferTableModel())
+        self.sort(6, Qt.DescendingOrder)
+        self.setDynamicSortFilter(True)
         self.__method_forward()
-        self.sort(0)
-
-    def lessThan(self, left_index, right_index):
-        left = self.sourceModel().raw_data(left_index)
-        right = self.sourceModel().raw_data(right_index)
-
-        if (left == None or right == None): return True
-        return left < right
-
-    def flags(self, index):
-        return Qt.ItemIsEnabled | Qt.ItemIsSelectable
 
     def __method_forward(self):
         self.global_speed = self.sourceModel().global_speed
@@ -28,17 +19,29 @@ class FileTransferSortProxyModel(QSortFilterProxyModel):
         self.transfer_count = self.sourceModel().transfer_count
         self.scan_files = self.sourceModel().scan_files
 
+    def flags(self, index):
+        return Qt.ItemIsEnabled | Qt.ItemIsSelectable
+
+    def lessThan(self, left_index, right_index):
+        left = self.sourceModel().raw_data(left_index)
+        right = self.sourceModel().raw_data(right_index)
+
+        if (left == None or right == None): return True
+        return left < right
+
 class FileTransferTableModel(QSqlTableModel):
     __calculated_column_index = {'progress':7, 'speed':8}
 
     def __init__ (self, parent=None):
         super(FileTransferTableModel, self).__init__(parent)
+        self.query = QSqlQuery()
         self.worker = Worker()
         self.setTable('file_list')
+        self.setFilter('modified_at NOT NULL')
         self.select()
+        self.__sort_by_modified_at()
         self.__columnCount = super().columnCount
         self.__calculated_column = dict()
-        self.query = QSqlQuery()
         for key in self.__class__.__calculated_column_index:
             self.__calculated_column[key] = dict()
 
@@ -95,6 +98,12 @@ class FileTransferTableModel(QSqlTableModel):
     def global_speed(self):
         return sum(self.__calculated_column['speed'].values())
 
+    def record_count(self):
+        query = self.query
+        query.exec_('SELECT COUNT(*) FROM file_list')
+        if query.next():
+            return query.value(0)
+
     def transfer_count(self):
         query = self.query
         query.exec_('SELECT SUM(status) FROM file_list')
@@ -121,36 +130,35 @@ class FileTransferTableModel(QSqlTableModel):
     def __file_iteration(self, directory):
         self.file_infos = DirFileInfoList(directory).file_infos
 
+    def __sort_by_modified_at(self):
+        self.sort(6, Qt.DescendingOrder)
+
     def __batch_insert(self, infos=None):
         if infos == None:
             infos = self.file_infos
+
         for info in infos:
             QApplication.processEvents(QEventLoop.AllEvents)
             self.__insert_record(info)
         
-        self.select()
-
     def __batch_update(self, infos):
         for info in infos:
             QApplication.processEvents(QEventLoop.AllEvents)
             self.__update_record(info)
-        
-        self.select()
 
     def __batch_delete(self, paths):
         for path in paths:
             QApplication.processEvents(QEventLoop.AllEvents)
             self.__delete_record(path)
-        
-        self.select()
 
     def __delete_record(self, path):
         query = self.query
-        string = 'DELETE FROM file_list WHERE path="%s"' % path
+        string = 'UPDATE file_list SET modified_at=NULL WHERE path="%s"' % path
         query.exec_(string)
 
     def __insert_record(self, info):
         query = self.query
+        row = self.record_count()
         query.prepare('INSERT INTO file_list (name, size, path, is_dir, modified_at) VALUES (:name, :size, :path, :is_dir, :modified_at)')
         query.bindValue(':name', info.fileName())
         query.bindValue(':size', info.size())
@@ -189,6 +197,7 @@ class FileTransferTableModel(QSqlTableModel):
         self.__batch_delete(removed_files)
         self.__batch_update(modified_files)
         self.__batch_insert(infos=added_files)
+        self.__sort_by_modified_at()
 
 
 class Configuration(QObject):
