@@ -34,15 +34,34 @@ class __DataStoreObject(QObject):
         return None
 
     def update_record(self, info):
+        QApplication.processEvents(QEventLoop.AllEvents)
         string = 'UPDATE file_list SET modified_at=%d, size=%d WHERE path="%s"' % (
             modified_at_of(info),
             info.size(),
-            info.absoluteFilePath(), 
+            from_qvariant(info.absoluteFilePath()),
         )
 
         self.query.exec_(string)
+        self.committed.emit()
+
+    def move_record(self, src_path, dest_path):
+        QApplication.processEvents(QEventLoop.AllEvents)
+        dest_info = QFileInfo(dest_path)
+        string = 'UPDATE file_list SET name="%s", path="%s", modified_at="%d" WHERE path="%s"' % (
+            from_qvariant(dest_info.fileName()),
+            dest_path,
+            modified_at_of(dest_info),
+            src_path
+        )
+
+        print(modified_at_of(QFileInfo(dest_path)), string)
+        print(self.get(src_path), self.query.lastError().text())
+        self.query.exec_(string)
+        print(self.get(dest_path), self.query.lastError().text())
+        self.committed.emit()
 
     def insert_record(self, info):
+        QApplication.processEvents(QEventLoop.AllEvents)
         if self.get(info.absoluteFilePath()):
             return self.update_record(info)
 
@@ -56,31 +75,28 @@ class __DataStoreObject(QObject):
         self.query.bindValue(':is_dir', 1 if info.isDir() else 0)
         self.query.bindValue(':modified_at', modified_at_of(info))
         self.query.exec_()
+        self.committed.emit()
 
     def delete_record(self, path):
+        print(path.__class__)
         string = 'UPDATE file_list SET modified_at=NULL WHERE path="%s"' % path
+
         self.query.exec_(string)
+        self.committed.emit()
 
     def batch_insert(self, infos):
         for info in infos:
-            QApplication.processEvents(QEventLoop.AllEvents)
             self.insert_record(info)
-
-        self.committed.emit()
 
     def batch_update(self, infos):
         for info in infos:
             QApplication.processEvents(QEventLoop.AllEvents)
             self.update_record(info)
 
-        self.committed.emit()
-
     def batch_delete(self, paths):
         for path in paths:
             QApplication.processEvents(QEventLoop.AllEvents)
             self.delete_record(path)
-
-        self.committed.emit()
 
 DataStore = __DataStoreObject()
 

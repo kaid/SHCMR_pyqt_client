@@ -1,33 +1,36 @@
 # encoding=utf-8
 
 import datetime
-from PyQt4.QtGui import QSortFilterProxyModel, QApplication
+from PyQt4.QtGui import QSortFilterProxyModel
 from PyQt4.QtSql import QSqlTableModel, QSqlQuery
-from PyQt4.QtCore import Qt, QModelIndex, SIGNAL, pyqtSignal, QObject, QEventLoop, QFileInfo
+from PyQt4.QtCore import Qt, QModelIndex, pyqtSignal, QObject, QFileInfo, QVariant
 from env import DataStore, Configuration
 from utils import *
+
+set_unicode()
 
 class FileTransferSortProxyModel(QSortFilterProxyModel):
     def __init__(self, parent=None):
         super(FileTransferSortProxyModel, self).__init__(parent)
         self.setSourceModel(FileTransferTableModel())
-        self.sort(6, Qt.DescendingOrder)
         self.setDynamicSortFilter(True)
         self.__method_forward()
 
     def __method_forward(self):
-        self.global_speed = self.sourceModel().global_speed
-        self.global_time_left = self.sourceModel().global_time_left
-        self.set_calculated_column = self.sourceModel().set_calculated_column
-        self.transfer_count = self.sourceModel().transfer_count
-        self.scan_files = self.sourceModel().scan_files
+        methods = ['global_speed', 'global_time_left', 'set_calculated_column',
+                   'transfer_count', 'scan_files', 'sort_by_modified_at']
+
+        for method in methods:
+            setattr(self,
+                    method,
+                    getattr(self.sourceModel(), method))
 
     def flags(self, index):
         return Qt.ItemIsEnabled | Qt.ItemIsSelectable
 
     def lessThan(self, left_index, right_index):
-        left = self.sourceModel().raw_data(left_index)
-        right = self.sourceModel().raw_data(right_index)
+        left = from_qvariant(self.sourceModel().raw_data(left_index))
+        right = from_qvariant(self.sourceModel().raw_data(right_index))
 
         if (left == None or right == None): return True
         return left < right
@@ -40,32 +43,28 @@ class FileTransferTableModel(QSqlTableModel):
         self.query = QSqlQuery()
         self.worker = Worker()
         self.setTable('file_list')
-        DataStore.committed.connect(self.__sort_by_modified_at)
         self.setFilter('modified_at NOT NULL')
         self.select()
-        self.__sort_by_modified_at()
+        DataStore.committed.connect(self.sort_by_modified_at)
+        self.sort_by_modified_at()
         self.__columnCount = super(self.__class__, self).columnCount
-        self.__calculated_column = dict()
+        self.__calculated_columns = dict()
         for key in self.__class__.__calculated_column_index:
-            self.__calculated_column[key] = dict()
-
-    def __init_monitor(self):
-        self.monitor = FSMonitor()
-
+            self.__calculated_columns[key] = dict()
 
     def columnCount(self, parent=QModelIndex()):
         return self.__columnCount(parent) + len(self.__class__.__calculated_column_index)
 
     def data(self, index, role=Qt.DisplayRole):
         if Qt.DisplayRole == role:
-            status = super().data(self.index(index.row(), 1))
-            data = self.raw_data(index)
+            status = super(FileTransferTableModel, self).data(self.index(index.row(), 1))
+            data = from_qvariant(self.raw_data(index))
             if 1 == index.column():
-                return '同步中' if status else '同步完毕'
+                return unicode_str('同步中' if status else '同步完毕')
             if 3 == index.column():
                 return convert_byte_size(int(data))
             if 5 == index.column():
-                return '目录' if data else '文件'
+                return unicode_str('目录' if data else '文件')
             if 6 == index.column():
                 if data < 0:
                     return
@@ -81,36 +80,30 @@ class FileTransferTableModel(QSqlTableModel):
         if role != Qt.DisplayRole:
             return None
         if orientation == Qt.Horizontal:
-            return ['id', '状态', '文件名', '大小', '路径', '类型', '最近修改于', '进度', '速度'][section]
+            return unicode_str(['id', '状态', '文件名', '大小', '路径', '类型', '最近修改于', '进度', '速度'][section])
 
     def set_calculated_column(self, column, row, value):
         status = self.raw_data(self.index(row, 1))
         if not status:
             return False
-        fid = self.raw_data(self.index(row, 0))
+        fid = from_qvariant(self.raw_data(self.index(row, 4)))
         index = self.index(row, self.__class__.__calculated_column_index[column])
-        self.__calculated_column[column][fid] = value
+        self.__calculated_columns[column][fid] = from_qvariant(value)
         self.dataChanged.emit(index, index)
         return True
 
     def raw_data(self, index, role=Qt.DisplayRole):
         if Qt.DisplayRole == role:
-            fid = super().data(self.index(index.row(), 0))
+            fid = from_qvariant(super(FileTransferTableModel, self).data(self.index(index.row(), 4)))
             if 7 == index.column():
-                return self.__calculated_column['progress'].get(fid, 0)
+                return self.__calculated_columns['progress'].get(fid, 0)
             if 8 == index.column():
-                return int(self.__calculated_column['speed'].get(fid, 0))
+                return int(self.__calculated_columns['speed'].get(fid, 0))
 
-        return super().data(index, role)
+        return super(FileTransferTableModel, self).data(index, role)
 
     def global_speed(self):
-        return sum(self.__calculated_column['speed'].values())
-
-    def record_count(self):
-        query = self.query
-        query.exec_('SELECT COUNT(*) FROM file_list')
-        if query.next():
-            return query.value(0)
+        return sum(self.__calculated_columns['speed'].values())
 
     def transfer_count(self):
         query = self.query
@@ -119,13 +112,13 @@ class FileTransferTableModel(QSqlTableModel):
             return query.value(0)
 
     def time_left(self, row):
-        fid = self.raw_data(self.index(row, 0))
-        size = self.raw_data(self.index(row, 3))
-        progress = 1 - (self.__calculated_column['progress'].get(fid, 0) / 100)
-        speed = self.__calculated_column['speed'].get(fid, 0)
+        fid = from_qvariant(self.raw_data(self.index(row, 4)))
+        size = from_qvariant(self.raw_data(self.index(row, 3)))
+        progress = self.__calculated_columns['progress'].get(fid, 0) / 100.0
+        speed = self.__calculated_columns['speed'].get(fid, 0)
         if not speed:
             return -1
-        return size * progress / speed
+        return size * (1 - progress) / speed
 
     def global_time_left(self):
         time_left_collection = [self.time_left(row) for row in range(self.rowCount())]
@@ -138,7 +131,7 @@ class FileTransferTableModel(QSqlTableModel):
     def __file_iteration(self, directory):
         self.file_infos = DirFileInfoList(directory).file_infos
 
-    def __sort_by_modified_at(self):
+    def sort_by_modified_at(self):
         self.sort(6, Qt.DescendingOrder)
 
     def get_meta_dict(self):
@@ -147,7 +140,7 @@ class FileTransferTableModel(QSqlTableModel):
         path_number, modified_at_number = query.record().indexOf('path'), query.record().indexOf('modified_at')
         meta_dict = {}
         while query.next():
-            path, modified_at = query.value(path_number), query.value(modified_at_number)
+            path, modified_at = from_qvariant(query.value(path_number)), query.value(modified_at_number)
             meta_dict[path] = modified_at
         return meta_dict
 
@@ -164,7 +157,3 @@ class FileTransferTableModel(QSqlTableModel):
         DataStore.batch_delete(removed_files)
         DataStore.batch_update(modified_files)
         DataStore.batch_insert(added_files)
-
-        self.__sort_by_modified_at()
-
-
