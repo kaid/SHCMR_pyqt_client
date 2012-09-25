@@ -1,7 +1,10 @@
+# encoding=utf-8
+
 import datetime
 from PyQt4.QtGui import QSortFilterProxyModel, QApplication
 from PyQt4.QtSql import QSqlTableModel, QSqlQuery
 from PyQt4.QtCore import Qt, QModelIndex, SIGNAL, pyqtSignal, QObject, QEventLoop, QFileInfo
+from env import DataStore, Configuration
 from utils import *
 
 class FileTransferSortProxyModel(QSortFilterProxyModel):
@@ -37,13 +40,18 @@ class FileTransferTableModel(QSqlTableModel):
         self.query = QSqlQuery()
         self.worker = Worker()
         self.setTable('file_list')
+        DataStore.committed.connect(self.__sort_by_modified_at)
         self.setFilter('modified_at NOT NULL')
         self.select()
         self.__sort_by_modified_at()
-        self.__columnCount = super().columnCount
+        self.__columnCount = super(self.__class__, self).columnCount
         self.__calculated_column = dict()
         for key in self.__class__.__calculated_column_index:
             self.__calculated_column[key] = dict()
+
+    def __init_monitor(self):
+        self.monitor = FSMonitor()
+
 
     def columnCount(self, parent=QModelIndex()):
         return self.__columnCount(parent) + len(self.__class__.__calculated_column_index)
@@ -123,9 +131,9 @@ class FileTransferTableModel(QSqlTableModel):
         time_left_collection = [self.time_left(row) for row in range(self.rowCount())]
         return sum(time_left_collection)
 
-    def scan_files(self, directory):
-        self.worker.done.connect(self.__batch_insert)
-        self.worker.begin(self.__file_iteration, directory)
+    def scan_files(self):
+        self.worker.done.connect(lambda: DataStore.batch_insert(self.file_infos))
+        self.worker.begin(self.__file_iteration, Configuration.get_directory())
 
     def __file_iteration(self, directory):
         self.file_infos = DirFileInfoList(directory).file_infos
@@ -133,52 +141,9 @@ class FileTransferTableModel(QSqlTableModel):
     def __sort_by_modified_at(self):
         self.sort(6, Qt.DescendingOrder)
 
-    def __batch_insert(self, infos=None):
-        if infos == None:
-            infos = self.file_infos
-
-        for info in infos:
-            QApplication.processEvents(QEventLoop.AllEvents)
-            self.__insert_record(info)
-        
-    def __batch_update(self, infos):
-        for info in infos:
-            QApplication.processEvents(QEventLoop.AllEvents)
-            self.__update_record(info)
-
-    def __batch_delete(self, paths):
-        for path in paths:
-            QApplication.processEvents(QEventLoop.AllEvents)
-            self.__delete_record(path)
-
-    def __delete_record(self, path):
-        query = self.query
-        string = 'UPDATE file_list SET modified_at=NULL WHERE path="%s"' % path
-        query.exec_(string)
-
-    def __insert_record(self, info):
-        query = self.query
-        row = self.record_count()
-        query.prepare('INSERT INTO file_list (name, size, path, is_dir, modified_at) VALUES (:name, :size, :path, :is_dir, :modified_at)')
-        query.bindValue(':name', info.fileName())
-        query.bindValue(':size', info.size())
-        query.bindValue(':path', info.absoluteFilePath())
-        query.bindValue(':is_dir', 1 if info.isDir() else 0)
-        query.bindValue(':modified_at', -1 if info.isDir() else convert_time(info.lastModified() or info.created()))
-        query.exec_()
-
-    def __update_record(self, info):
-        query = self.query
-        string = 'UPDATE file_list SET modified_at=%d, size=%d WHERE path="%s"' % (
-            -1 if info.isDir() else convert_time(info.lastModified() or info.created()),
-            info.size(),
-            info.absoluteFilePath(), 
-        )
-        query.exec_(string)
-
     def get_meta_dict(self):
         query = self.query
-        query.exec_('SELECT * FROM file_list')
+        query.exec_('SELECT * FROM file_list WHERE modified_at NOT NULL')
         path_number, modified_at_number = query.record().indexOf('path'), query.record().indexOf('modified_at')
         meta_dict = {}
         while query.next():
@@ -187,33 +152,19 @@ class FileTransferTableModel(QSqlTableModel):
         return meta_dict
 
     def merge_changes(self, new_meta_dict):
-        query = self.query
         differ = DictDiffer(new_meta_dict, self.get_meta_dict())
         removed_files = list(differ.removed())
         added_files = [QFileInfo(path) for path in differ.added()]
         modified_files = [QFileInfo(path) for path in differ.changed()]
 
-        print('>>>> these files have been changed ', differ.changed())
-        self.__batch_delete(removed_files)
-        self.__batch_update(modified_files)
-        self.__batch_insert(infos=added_files)
+        print('>>>>>>> records gonna be changed: ', differ.changed())
+        print('>>>>>>> records gonna be deleted: ', differ.removed())
+        print('>>>>>>> records gonna be added: ',   differ.added())
+
+        DataStore.batch_delete(removed_files)
+        DataStore.batch_update(modified_files)
+        DataStore.batch_insert(added_files)
+
         self.__sort_by_modified_at()
 
 
-class Configuration(QObject):
-    have_updated = pyqtSignal()
-
-    def __init__(self, parent=None):
-        super(Configuration, self).__init__()
-        self.query = QSqlQuery()
-
-    def set_directory(self, directory):
-        self.query.prepare('UPDATE configuration SET directory=:directory WHERE id=1')
-        self.query.bindValue(':directory', directory)
-        self.query.exec_()
-        self.have_updated.emit()
-
-    def get_directory(self):
-        self.query.exec_('SELECT directory FROM configuration WHERE id=1')
-        while self.query.next():
-            return self.query.value(0)

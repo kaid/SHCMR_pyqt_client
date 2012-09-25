@@ -1,3 +1,5 @@
+# encoding=utf-8
+
 import time
 from PyQt4.QtCore import Qt, QThread, pyqtSignal, QFileSystemWatcher, QObject, QDir, QDirIterator, QFileInfo, QTimer
 
@@ -13,6 +15,11 @@ def format_time(seconds):
 def convert_time(qdatetime):
     qdatetime.setTimeSpec(Qt.LocalTime)
     return qdatetime.toTime_t()
+
+def modified_at_of(info):
+    if info.isDir():
+        return -1
+    return convert_time(info.lastModified() or info.created())
 
 class Worker(QThread):
     done = pyqtSignal()
@@ -31,7 +38,7 @@ class Worker(QThread):
 
 class DirFileInfoList(QObject):
     def __init__(self, directory, parent=None):
-        super(DirFileInfoList, self).__init__(parent)
+        super(self.__class__, self).__init__(parent)
         self.iterator = QDirIterator(directory,
                                      QDir.AllEntries | QDir.NoDotAndDotDot,
                                      QDirIterator.Subdirectories)
@@ -46,7 +53,7 @@ class DirFileInfoList(QObject):
     def get_meta_dict(self):
         meta_dict = {}
         for info in self.file_infos:
-            meta_dict[info.absoluteFilePath()] = -1 if info.isDir() else convert_time(info.lastModified() or info.create())
+            meta_dict[info.absoluteFilePath()] = modified_at_of(info)
         return meta_dict
 
 class DictDiffer(object):
@@ -77,29 +84,18 @@ class FSMonitor(QObject):
         super(FSMonitor, self).__init__(parent)
         self.worker = Worker()
         self.timer = QTimer(self)
-        self.__init_watcher()
-        # self.watching_list = []
+        self.__schedule_watcher()
 
     def watch(self, directory):
-        # if self.__dict__.get('directory', False):
-        #     self.watcher.removePaths(self.watching_list)
         self.directory = directory
-        # self.watching_list = list(map(lambda info: info.absoluteFilePath(),
-        #                               DirFileInfoList(directory).file_infos))
-        # self.watcher.addPath(directory)#self.watching_list)
 
-    def __init_watcher(self):
-        # self.watcher = watcher = QFileSystemWatcher()
-        # watcher.directoryChanged.connect(self.scan_changes)
-        # watcher.directoryChanged.connect(self.__update_watching_list)
-        # watcher.fileChanged.connect(self.__update_watching_list)
+    def __schedule_watcher(self):
         self.timer.timeout.connect(self.scan_changes)
-        self.timer.start(30000)
+        self.timer.start(4000)
 
     def scan_changes(self):
         self.worker.begin(self.__file_iteration, self.directory)
 
     def __file_iteration(self, directory):
-        print('lalalalala')
         self.meta_dict = DirFileInfoList(directory).get_meta_dict()
         self.scanned.emit(self.meta_dict)
