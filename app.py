@@ -11,7 +11,7 @@ def init_monitor(model):
     directory = Configuration.get_directory()
     if directory:
         monitor.watch(directory)
-    Configuration.have_updated.connect(lambda:monitor.watch(directory))
+    Configuration.have_updated.connect(lambda:monitor.watch(Configuration.get_directory()))
     monitor.scanned.connect(model.merge_changes)
 
 def main():

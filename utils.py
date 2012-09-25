@@ -1,7 +1,23 @@
 # encoding=utf-8
 
+import sys
 import time
-from PyQt4.QtCore import Qt, QThread, pyqtSignal, QFileSystemWatcher, QObject, QDir, QDirIterator, QFileInfo, QTimer
+from PyQt4.QtCore import (Qt,
+                          QThread,
+                          pyqtSignal,
+                          QFileSystemWatcher,
+                          QObject,
+                          QDir,
+                          QDirIterator,
+                          QFileInfo,
+                          QTimer,
+                          QVariant)
+
+try:
+    from PyQt4.QtCore import QString
+except ImportError:
+    print('Welcome to world of py3k!')
+
 
 def convert_byte_size(byte_size):
     for unit in ['bytes','KB','MB','GB','TB']:
@@ -21,6 +37,27 @@ def modified_at_of(info):
         return -1
     return convert_time(info.lastModified() or info.created())
 
+def from_qvariant(data):
+    if data.__class__ == QVariant:
+        pydata = data.toPyObject()
+        if pydata.__class__ == QString:
+            return str(pydata)
+        return pydata
+    return data
+
+def unicode_str(str):
+    try:
+        return unicode(str)
+    except NameError:
+        return str
+
+def set_unicode():
+    try:
+        reload(sys)
+        sys.setdefaultencoding('utf-8')
+    except NameError:
+        print('Glad being back to py3k, python 2.x sucks at unicode, oww!')
+
 class Worker(QThread):
     done = pyqtSignal()
 
@@ -39,7 +76,7 @@ class Worker(QThread):
 class DirFileInfoList(QObject):
     def __init__(self, directory, parent=None):
         super(self.__class__, self).__init__(parent)
-        self.iterator = QDirIterator(directory,
+        self.iterator = QDirIterator(from_qvariant(directory),
                                      QDir.AllEntries | QDir.NoDotAndDotDot,
                                      QDirIterator.Subdirectories)
         self.__iterate_files()
@@ -94,6 +131,7 @@ class FSMonitor(QObject):
         self.timer.start(4000)
 
     def scan_changes(self):
+        print(self.directory)
         self.worker.begin(self.__file_iteration, self.directory)
 
     def __file_iteration(self, directory):
