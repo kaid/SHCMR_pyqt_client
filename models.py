@@ -56,7 +56,7 @@ class FileTransferTableModel(QSqlTableModel):
 
     def data(self, index, role=Qt.DisplayRole):
         if Qt.DisplayRole == role:
-            status = super(FileTransferTableModel, self).data(self.index(index.row(), 1))
+            status = from_qvariant(super(FileTransferTableModel, self).data(self.index(index.row(), 1)))
             data = from_qvariant(self.raw_data(index))
             return {
                 1 : lambda data: unicode_str('同步中' if status else '同步完毕'),
