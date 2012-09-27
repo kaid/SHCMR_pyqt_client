@@ -1,6 +1,5 @@
 # encoding=utf-8
 
-import datetime
 from PyQt4.QtGui import QSortFilterProxyModel
 from PyQt4.QtSql import QSqlTableModel, QSqlQuery
 from PyQt4.QtCore import Qt, QModelIndex, pyqtSignal, QObject, QFileInfo, QVariant
@@ -59,22 +58,14 @@ class FileTransferTableModel(QSqlTableModel):
         if Qt.DisplayRole == role:
             status = super(FileTransferTableModel, self).data(self.index(index.row(), 1))
             data = from_qvariant(self.raw_data(index))
-            if 1 == index.column():
-                return unicode_str('同步中' if status else '同步完毕')
-            if 3 == index.column():
-                return convert_byte_size(int(data))
-            if 5 == index.column():
-                return unicode_str('目录' if data else '文件')
-            if 6 == index.column():
-                if data < 0:
-                    return
-                return datetime.datetime.fromtimestamp(data).isoformat(' ')
-            if 7 == index.column() and status:
-                return data
-            if 8 == index.column() and status:
-                return convert_byte_size(int(data)) + '/s'
-
-        return self.raw_data(index, role)
+            return {
+                1 : lambda data: unicode_str('同步中' if status else '同步完毕'),
+                3 : lambda data: convert_byte_size(int(data)),
+                5 : lambda data: unicode_str('目录' if data else '文件'),
+                6 : lambda data: format_date(data),
+                7 : lambda data: data if status else None,
+                8 : lambda data: convert_byte_size(int(data)) + '/s' if status else None
+            }.get(index.column(), lambda data: data)(data)
 
     def headerData(self, section, orientation, role=Qt.DisplayRole):
         if role != Qt.DisplayRole:
@@ -106,10 +97,9 @@ class FileTransferTableModel(QSqlTableModel):
         return sum(self.__calculated_columns['speed'].values())
 
     def transfer_count(self):
-        query = self.query
-        query.exec_('SELECT SUM(status) FROM file_list')
-        while query.next():
-            return query.value(0)
+        self.query.exec_('SELECT COUNT(*) FROM file_list WHERE (modified_at NOT NULL)')
+        while self.query.next():
+            return self.query.value(0)
 
     def time_left(self, row):
         fid = from_qvariant(self.raw_data(self.index(row, 4)))
@@ -133,27 +123,3 @@ class FileTransferTableModel(QSqlTableModel):
 
     def sort_by_modified_at(self):
         self.sort(6, Qt.DescendingOrder)
-
-    def get_meta_dict(self):
-        query = self.query
-        query.exec_('SELECT * FROM file_list WHERE modified_at NOT NULL')
-        path_number, modified_at_number = query.record().indexOf('path'), query.record().indexOf('modified_at')
-        meta_dict = {}
-        while query.next():
-            path, modified_at = from_qvariant(query.value(path_number)), query.value(modified_at_number)
-            meta_dict[path] = modified_at
-        return meta_dict
-
-    def merge_changes(self, new_meta_dict):
-        differ = DictDiffer(new_meta_dict, self.get_meta_dict())
-        removed_files = list(differ.removed())
-        added_files = [QFileInfo(path) for path in differ.added()]
-        modified_files = [QFileInfo(path) for path in differ.changed()]
-
-        print('>>>>>>> records gonna be changed: ', differ.changed())
-        print('>>>>>>> records gonna be deleted: ', differ.removed())
-        print('>>>>>>> records gonna be added: ',   differ.added())
-
-        DataStore.batch_delete(removed_files)
-        DataStore.batch_update(modified_files)
-        DataStore.batch_insert(added_files)

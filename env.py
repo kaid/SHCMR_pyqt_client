@@ -1,11 +1,6 @@
-from PyQt4.QtCore import QObject, pyqtSignal, QEventLoop
+from PyQt4.QtCore import QObject, pyqtSignal
 from PyQt4.QtSql import QSqlDatabase, QSqlQuery
-from PyQt4.QtGui import QApplication
 from utils import *
-
-_sql_file          = open('database.sql', 'r')
-_setup_sql_strings = _sql_file.read().split(';')[0:-1]
-_sql_file.close()
 
 class __DataStoreObject(QObject):
     committed = pyqtSignal()
@@ -15,6 +10,16 @@ class __DataStoreObject(QObject):
         self.__init_database()
         self.query = QSqlQuery()
         self.__setup_database()
+        self.__batch_exec = False
+
+    def start_batch(self):
+        self.__batch_exec = True
+
+    def end_batch(self):
+        self.__batch_exec = False
+
+    def emit_committed(self):
+        self.__batch_exec or self.committed.emit()
 
     def __init_database(self):
         self.database = QSqlDatabase.addDatabase('QSQLITE')
@@ -22,8 +27,9 @@ class __DataStoreObject(QObject):
         self.database.open()
 
     def __setup_database(self):
-        for string in _setup_sql_strings:
-            self.query.exec_(string)
+        with open('database.sql', 'r') as file:
+            for string in file.read().split(';')[0:-1]:
+                self.query.exec_(string)
 
     def get(self, path):
         self.query.exec_('SELECT * FROM file_list WHERE path="%s"' % path)
@@ -34,7 +40,7 @@ class __DataStoreObject(QObject):
         return None
 
     def update_record(self, info):
-        QApplication.processEvents(QEventLoop.AllEvents)
+        process_event()
         string = 'UPDATE file_list SET modified_at=%d, size=%d WHERE path="%s"' % (
             modified_at_of(info),
             info.size(),
@@ -42,10 +48,10 @@ class __DataStoreObject(QObject):
         )
 
         self.query.exec_(string)
-        self.committed.emit()
+        self.emit_committed()
 
     def move_record(self, src_path, dest_path):
-        QApplication.processEvents(QEventLoop.AllEvents)
+        process_event()
         dest_info = QFileInfo(dest_path)
         string = 'UPDATE file_list SET name="%s", path="%s", modified_at="%d" WHERE path="%s"' % (
             from_qvariant(dest_info.fileName()),
@@ -54,14 +60,11 @@ class __DataStoreObject(QObject):
             src_path
         )
 
-        print(modified_at_of(QFileInfo(dest_path)), string)
-        print(self.get(src_path), self.query.lastError().text())
         self.query.exec_(string)
-        print(self.get(dest_path), self.query.lastError().text())
-        self.committed.emit()
+        self.emit_committed()
 
     def insert_record(self, info):
-        QApplication.processEvents(QEventLoop.AllEvents)
+        process_event()
         if self.get(info.absoluteFilePath()):
             return self.update_record(info)
 
@@ -75,28 +78,35 @@ class __DataStoreObject(QObject):
         self.query.bindValue(':is_dir', 1 if info.isDir() else 0)
         self.query.bindValue(':modified_at', modified_at_of(info))
         self.query.exec_()
-        self.committed.emit()
+        self.emit_committed()
 
     def delete_record(self, path):
-        print(path.__class__)
+        process_event()
         string = 'UPDATE file_list SET modified_at=NULL WHERE path="%s"' % path
 
         self.query.exec_(string)
-        self.committed.emit()
+        self.emit_committed()
 
     def batch_insert(self, infos):
+        self.start_batch()
         for info in infos:
             self.insert_record(info)
+        self.end_batch()
+        self.emit_committed()
 
     def batch_update(self, infos):
+        self.start_batch()
         for info in infos:
-            QApplication.processEvents(QEventLoop.AllEvents)
             self.update_record(info)
+        self.end_batch()
+        self.emit_committed()
 
     def batch_delete(self, paths):
+        self.start_batch()
         for path in paths:
-            QApplication.processEvents(QEventLoop.AllEvents)
             self.delete_record(path)
+        self.end_batch()
+        self.emit_committed()
 
 DataStore = __DataStoreObject()
 

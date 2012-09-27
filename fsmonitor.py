@@ -19,8 +19,6 @@ class FileChangeHandler(PatternMatchingEventHandler):
         DataStore.move_record(event.src_path, event.dest_path)
 
 class FSMonitor(QObject):
-    scanned = pyqtSignal(dict)
-
     def __init__(self, parent=None):
         super(FSMonitor, self).__init__(parent)
         self.worker = Worker()

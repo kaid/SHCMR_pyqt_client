@@ -2,6 +2,7 @@
 
 import sys
 import time
+import datetime
 from PyQt4.QtCore import (Qt,
                           QThread,
                           pyqtSignal,
@@ -10,8 +11,10 @@ from PyQt4.QtCore import (Qt,
                           QDir,
                           QDirIterator,
                           QFileInfo,
+                          QEventLoop,
                           QVariant)
 
+from PyQt4.QtGui import QApplication
 try:
     from PyQt4.QtCore import QString
 except ImportError:
@@ -25,6 +28,11 @@ def convert_byte_size(byte_size):
 
 def format_time(seconds):
     return time.strftime('%H小时%M分%S秒', time.gmtime(seconds))
+
+def format_date(date):
+    if date < 0:
+        return
+    return datetime.datetime.fromtimestamp(date).isoformat(' ')
 
 def convert_time(qdatetime):
     qdatetime.setTimeSpec(Qt.LocalTime)
@@ -55,6 +63,9 @@ def set_unicode():
         sys.setdefaultencoding('utf-8')
     except NameError:
         print('Glad to be back to py3k, python 2.x sucks at unicode, oww!')
+
+def process_event():
+    QApplication.processEvents(QEventLoop.AllEvents)
 
 class Worker(QThread):
     done = pyqtSignal()
