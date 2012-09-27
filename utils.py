@@ -10,14 +10,12 @@ from PyQt4.QtCore import (Qt,
                           QDir,
                           QDirIterator,
                           QFileInfo,
-                          QTimer,
                           QVariant)
 
 try:
     from PyQt4.QtCore import QString
 except ImportError:
     print('Welcome to world of py3k!')
-
 
 def convert_byte_size(byte_size):
     for unit in ['bytes','KB','MB','GB','TB']:
@@ -56,7 +54,7 @@ def set_unicode():
         reload(sys)
         sys.setdefaultencoding('utf-8')
     except NameError:
-        print('Glad being back to py3k, python 2.x sucks at unicode, oww!')
+        print('Glad to be back to py3k, python 2.x sucks at unicode, oww!')
 
 class Worker(QThread):
     done = pyqtSignal()
@@ -114,26 +112,3 @@ class DictDiffer(object):
     def unchanged(self):
         return set(o for o in self.intersect if self.past_dict[o] == self.current_dict[o])
 
-class FSMonitor(QObject):
-    scanned = pyqtSignal(dict)
-
-    def __init__(self, parent=None):
-        super(FSMonitor, self).__init__(parent)
-        self.worker = Worker()
-        self.timer = QTimer(self)
-        self.__schedule_watcher()
-
-    def watch(self, directory):
-        self.directory = directory
-
-    def __schedule_watcher(self):
-        self.timer.timeout.connect(self.scan_changes)
-        self.timer.start(4000)
-
-    def scan_changes(self):
-        print(self.directory)
-        self.worker.begin(self.__file_iteration, self.directory)
-
-    def __file_iteration(self, directory):
-        self.meta_dict = DirFileInfoList(directory).get_meta_dict()
-        self.scanned.emit(self.meta_dict)

@@ -5,6 +5,7 @@ from PyQt4.QtGui import QApplication, QIcon
 from PyQt4.QtSql import QSqlDatabase, QSqlQuery
 from models import Configuration
 from views import MyWindow, FileTransferStatusBar, TrayIcon
+from fsmonitor import FSMonitor
 
 def init_monitor(model):
     monitor = FSMonitor()
@@ -13,6 +14,7 @@ def init_monitor(model):
         monitor.watch(directory)
     Configuration.have_updated.connect(lambda:monitor.watch(Configuration.get_directory()))
     monitor.scanned.connect(model.merge_changes)
+    monitor.start()
 
 def main():
     app = QApplication(sys.argv)
@@ -29,5 +31,5 @@ def main():
 
 if __name__ == '__main__':
     main()
-
+    
 

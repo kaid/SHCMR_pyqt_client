@@ -159,7 +159,7 @@ class TrayMenu(QMenu):
 
     def open_directory(self):
         directory = Configuration.get_directory()
-        QDesktopServices.openUrl(QUrl('file:///%s' % directory, QUrl.TolerantMode))
+        QDesktopServices.openUrl(QUrl('file:///%s' % from_qvariant(directory), QUrl.TolerantMode))
 
     def __toggle_open_directory_action(self):
         self.open_directory_action.setDisabled(not Configuration.get_directory())
