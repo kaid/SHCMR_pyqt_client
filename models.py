@@ -44,8 +44,15 @@ class FileTransferTableModel(QSqlTableModel):
         self.setTable('file_list')
         self.setFilter('modified_at NOT NULL')
         self.select()
-        DataStore.committed.connect(self.sort_by_modified_at)
         self.sort_by_modified_at()
+        self.__init_slots()
+        self.__init_calculated_column()
+
+    def __init_slots(self):
+        DataStore.committed.connect(self.sort_by_modified_at)
+        DataStore.committed.connect(self.__sync_db)
+
+    def __init_calculated_column(self):
         self.__columnCount = super(self.__class__, self).columnCount
         self.__calculated_columns = dict()
         for key in self.__class__.__calculated_column_index:
@@ -56,7 +63,7 @@ class FileTransferTableModel(QSqlTableModel):
 
     def data(self, index, role=Qt.DisplayRole):
         if Qt.DisplayRole == role:
-            status = from_qvariant(super(FileTransferTableModel, self).data(self.index(index.row(), 1)))
+            status = from_qvariant(self.raw_data(self.index(index.row(), 1)))
             data = from_qvariant(self.raw_data(index))
             return {
                 1 : lambda data: unicode_str('同步中' if status else '同步完毕'),

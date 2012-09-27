@@ -127,7 +127,7 @@ class FileTransferStatusBar(QStatusBar):
         self.config_dialog.show()
         if self.config_dialog.exec_():
             Configuration.set_directory(self.config_dialog.selectedFiles()[0])
-            print('当前同步目录: %s' % Configuration.get_directory())
+            print('当前同步目录: %s' % from_qvariant(Configuration.get_directory()))
 
     def __init_widget(self, attr_name, widget):
         if not hasattr(self, attr_name):
