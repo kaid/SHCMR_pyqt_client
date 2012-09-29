@@ -37,13 +37,14 @@ class FileTransferSortProxyModel(QSortFilterProxyModel):
         return left < right
 
 class FileTransferTableModel(QSqlTableModel):
-    __calculated_column_index = {'progress':8, 'speed':9}
+    __calculated_column_keys = {'progress':8, 'speed':9}
 
     def __init__ (self, parent=None):
         super(FileTransferTableModel, self).__init__(parent)
         self.query = QSqlQuery()
         self.worker = Worker()
         self.setTable('file_list')
+        self.setFilter('removed=0')
         self.setEditStrategy(QSqlTableModel.OnManualSubmit)
         self.select()
         self.sort_by_modified_at()
@@ -62,11 +63,11 @@ class FileTransferTableModel(QSqlTableModel):
     def __init_calculated_column(self):
         self.__columnCount = super(self.__class__, self).columnCount
         self.__calculated_columns = dict()
-        for key in self.__class__.__calculated_column_index:
+        for key in self.__class__.__calculated_column_keys:
             self.__calculated_columns[key] = dict()
 
     def columnCount(self, parent=QModelIndex()):
-        return self.__columnCount(parent) + len(self.__class__.__calculated_column_index)
+        return self.__columnCount(parent) + len(self.__class__.__calculated_column_keys)
 
     def data(self, index, role=Qt.DisplayRole):
         if Qt.DisplayRole == role:
@@ -78,8 +79,8 @@ class FileTransferTableModel(QSqlTableModel):
                 3 : lambda source: convert_byte_size(int(source)),
                 5 : lambda source: unicode_str('目录' if source else '文件'),
                 6 : lambda source: format_date(source),
-                8 : lambda source: source if status else None,
-                9 : lambda source: convert_byte_size(int(source)) + '/s' if status else None
+                8 : lambda source: source,
+                9 : lambda source: convert_byte_size(int(source)) + '/s'
             }.get(index.column(), lambda source: source)(data)
 
     def headerData(self, section, orientation, role=Qt.DisplayRole):
@@ -122,13 +123,13 @@ class FileTransferTableModel(QSqlTableModel):
     def __remove_blank_rows(self):
         pass
 
-    def set_calculated_column(self, column, row, value):
+    def set_calculated_column(self, key, row, value):
         status = self.raw_data(self.index(row, 1))
         if not status:
             return False
-        fid = from_qvariant(self.raw_data(self.index(row, 4)))
-        index = self.index(row, self.__class__.__calculated_column_index[column])
-        self.__calculated_columns[column][fid] = from_qvariant(value)
+        path = from_qvariant(self.raw_data(self.index(row, 4)))
+        index = self.index(row, self.__class__.__calculated_column_keys[key])
+        self.__calculated_columns[key][path] = from_qvariant(value)
         self.dataChanged.emit(index, index)
         return True
 
