@@ -9,7 +9,6 @@ class __DataStoreObject(QObject):
     batch_done = pyqtSignal()
     inserting  = pyqtSignal()
     inserted   = pyqtSignal(object)
-    updating   = pyqtSignal(list)
     updated    = pyqtSignal(list)
     deleted    = pyqtSignal(list)
     moved      = pyqtSignal(str, list)
@@ -41,7 +40,6 @@ class __DataStoreObject(QObject):
     def update_record(self, info):
         process_event()
         path = from_qvariant(info.absoluteFilePath())
-        old_data = self.get(path)
         string = 'UPDATE file_list SET modified_at=%d, size=%d, removed="%d" WHERE path="%s"' % (
             modified_at_of(info),
             info.size(),
@@ -49,9 +47,9 @@ class __DataStoreObject(QObject):
             path
         )
 
-        if old_data[7] == 1: self.updating.emit(old_data)
         self.query.exec_(string)
-        self.updated.emit(self.get(path))
+        data = self.get(path)
+        if data: self.updated.emit(data)
 
     def move_record(self, src_path, dest_path):
         process_event()

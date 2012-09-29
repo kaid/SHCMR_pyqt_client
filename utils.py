@@ -48,7 +48,7 @@ def from_qvariant(data):
     if data.__class__ == QVariant:
         pydata = data.toPyObject()
         if pydata.__class__ == QString:
-            return str(pydata)
+            return unicode(pydata)
         return pydata
     return data
 

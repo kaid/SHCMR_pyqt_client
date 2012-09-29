@@ -56,7 +56,6 @@ class FileTransferTableModel(QSqlTableModel):
         DataStore.batch_done.connect(self.select)
         DataStore.inserting.connect(self.begin_insert)
         DataStore.inserted.connect(self.end_insert)
-        DataStore.updating.connect(self.begin_update)
         DataStore.updated.connect(self.end_update)
         DataStore.deleted.connect(self.end_delete)
         DataStore.moved.connect(self.end_move)
@@ -102,11 +101,6 @@ class FileTransferTableModel(QSqlTableModel):
     def end_insert(self, data):
         self.set_row(self.rowCount() - 1, data)
 
-    def begin_update(self, data):
-        row = self.rowCount()
-        self.insertRows(row, 1)
-        self.set_row(row, data)
-            
     def end_update(self, data):
         self.set_row(self.row_from(data[4]), data)
 
