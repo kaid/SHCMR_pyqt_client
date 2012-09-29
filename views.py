@@ -89,6 +89,7 @@ class FileTransferTable(QTableView):
         self.horizontalHeader().setStretchLastSection(True)
         self.setSortingEnabled(True)
         self.setColumnHidden(0, True)
+        self.setColumnHidden(7, True)
         self.setSelectionBehavior(QAbstractItemView.SelectRows)
 
 class FileTransferStatusBar(QStatusBar):

@@ -15,6 +15,7 @@ from PyQt4.QtCore import (Qt,
                           QVariant)
 
 from PyQt4.QtGui import QApplication
+
 try:
     from PyQt4.QtCore import QString
 except ImportError:
@@ -29,10 +30,10 @@ def convert_byte_size(byte_size):
 def format_time(seconds):
     return time.strftime('%H小时%M分%S秒', time.gmtime(seconds))
 
-def format_date(date):
-    if date < 0:
+def format_date(data):
+    if data < 0:
         return
-    return datetime.datetime.fromtimestamp(date).isoformat(' ')
+    return datetime.datetime.fromtimestamp(long(data)).isoformat(' ')
 
 def convert_time(qdatetime):
     qdatetime.setTimeSpec(Qt.LocalTime)
@@ -95,9 +96,3 @@ class DirFileInfoList(QObject):
         while self.iterator.hasNext():
             info = QFileInfo(self.iterator.next())
             self.file_infos.append(info)
-
-    def get_meta_dict(self):
-        meta_dict = {}
-        for info in self.file_infos:
-            meta_dict[info.absoluteFilePath()] = modified_at_of(info)
-        return meta_dict

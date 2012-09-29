@@ -5,7 +5,8 @@ CREATE TABLE IF NOT EXISTS file_list (
        size        INTEGER DEFAULT 0 CHECK (size >= 0),
        path        VARCHAR(255) UNIQUE,
        is_dir      BOOLEAN DEFAULT 0 CHECK (is_dir = 0 OR is_dir = 1),
-       modified_at DATETIME
+       modified_at DATETIME,
+       removed     BOOLEAN DEFAULT 0 CHECK (removed = 0 OR removed = 1)
 );
 
 CREATE TABLE IF NOT EXISTS configuration (

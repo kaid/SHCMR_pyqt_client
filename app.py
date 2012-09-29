@@ -2,7 +2,6 @@
 import sys
 from utils import *
 from PyQt4.QtGui import QApplication, QIcon
-from PyQt4.QtSql import QSqlDatabase, QSqlQuery
 from models import Configuration
 from views import MyWindow, FileTransferStatusBar, TrayIcon
 from fsmonitor import FSMonitor

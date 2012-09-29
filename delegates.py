@@ -4,7 +4,7 @@ from utils import from_qvariant
 
 class FileTransferDelegate(QStyledItemDelegate):
     def paint(self, painter, option, index):
-        if 7 == index.column():
+        if 8 == index.column():
             value = from_qvariant(index.data(Qt.DisplayRole))
             if value != None:
                 opts = QStyleOptionProgressBarV2()
