@@ -52,6 +52,7 @@ class FileTransferTableModel(QSqlTableModel):
         self.__init_calculated_column()
 
     def __init_slots(self):
+        self.worker.done.connect(lambda: DataStore.batch_insert(self.file_infos))
         DataStore.batch_done.connect(self.select)
         DataStore.inserting.connect(self.begin_insert)
         DataStore.inserted.connect(self.end_insert)
@@ -117,11 +118,10 @@ class FileTransferTableModel(QSqlTableModel):
 
     def set_row(self, row, data):
         for column in range(8):
+            if row == None:
+                print(data, column)
             self.setData(self.index(row, column),
                          from_qvariant(data[column]))
-
-    def __remove_blank_rows(self):
-        pass
 
     def set_calculated_column(self, key, row, value):
         status = self.raw_data(self.index(row, 1))
@@ -165,7 +165,6 @@ class FileTransferTableModel(QSqlTableModel):
         return sum(time_left_collection)
 
     def scan_files(self):
-        self.worker.done.connect(lambda: DataStore.batch_insert(self.file_infos))
         self.worker.begin(self.__file_iteration, Configuration.get_directory())
 
     def __file_iteration(self, directory):

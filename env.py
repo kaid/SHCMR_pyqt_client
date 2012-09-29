@@ -1,6 +1,9 @@
 from PyQt4.QtCore import QObject, pyqtSignal
 from PyQt4.QtSql import QSqlDatabase, QSqlQuery
+from PyQt4.QtGui import QApplication
 from utils import *
+
+App = QApplication(sys.argv)
 
 class __DataStoreObject(QObject):
     batch_done = pyqtSignal()

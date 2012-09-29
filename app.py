@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 import sys
+from PyQt4.QtGui import QIcon
+from env import Configuration, App
 from utils import *
-from PyQt4.QtGui import QApplication, QIcon
-from models import Configuration
 from views import MyWindow, FileTransferStatusBar, TrayIcon
 from fsmonitor import FSMonitor
 
@@ -15,15 +15,14 @@ def init_monitor(model):
     monitor.start()
 
 def main():
-    app = QApplication(sys.argv)
     window = MyWindow()
     model = window.centralWidget().model().sourceModel()
     init_monitor( model)
     window.resize(800, 400)
     window.show()
-    tray = TrayIcon(app, parent=app)
+    tray = TrayIcon(App)
     tray.show()
-    app.exec_()
+    App.exec_()
     tray = None
     sys.exit()
 

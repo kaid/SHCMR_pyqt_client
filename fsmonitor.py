@@ -15,7 +15,6 @@ class FileChangeHandler(PatternMatchingEventHandler):
         DataStore.update_record(QFileInfo(event.src_path))
 
     def on_moved(self, event):
-        print(event.event_type, event.is_directory, event.src_path, event.dest_path)
         DataStore.move_record(event.src_path, event.dest_path)
 
 class FSMonitor(QObject):
