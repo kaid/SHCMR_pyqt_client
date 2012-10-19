@@ -62,7 +62,8 @@ class __DataStoreObject(QObject):
         )
 
         self.query.exec_(string)
-        self.moved.emit(src_path, self.get(dest_path))
+        data = self.get(dest_path)
+        if data: self.moved.emit(src_path, data)
 
     def insert_record(self, info, batch=False):
         process_event()
